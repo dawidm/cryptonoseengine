@@ -1,0 +1,267 @@
+package com.dawidmotyka.cryptonoseengine;
+
+import com.dawidmotyka.dmutils.RepeatTillSuccess;
+import com.dawidmotyka.exchangeutils.NotImplementedException;
+import com.dawidmotyka.exchangeutils.chartdataprovider.ChartDataProvider;
+import com.dawidmotyka.exchangeutils.chartdataprovider.ChartDataReceiver;
+import com.dawidmotyka.exchangeutils.chartinfo.ChartCandle;
+import com.dawidmotyka.exchangeutils.exchangespecs.ExchangeSpecs;
+import com.dawidmotyka.exchangeutils.pairdataprovider.PairDataProvider;
+import com.dawidmotyka.exchangeutils.tickerprovider.Ticker;
+import com.dawidmotyka.exchangeutils.tickerprovider.TickerProvider;
+import com.dawidmotyka.exchangeutils.tickerprovider.TickerReceiver;
+
+import java.io.IOException;
+import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
+
+/**
+ * Created by dawid on 12/28/17.
+ */
+public class CryptonoseGenericEngine extends CryptonoseEngineBase {
+
+    private final Logger logger = Logger.getLogger(CryptonoseGenericEngine.class.getName());
+
+    public static final int GET_DATA_RETRY_INTERVAL=60000;
+
+    private ExchangeSpecs exchangeSpecs;
+    private String counterCurrencySymbol;
+    private double minVolume;
+    private List<Integer> timePeriods=new ArrayList<>(5);
+    private String[] pairs;
+    private TickerProvider tickerProvider;
+    private ChartDataProvider chartDataProvider;
+    private RelativeChangesChecker relativeChangesChecker;
+    private CryptonoseEngineChangesChecker cryptonoseEngineChangesChecker;
+    private ScheduledExecutorService scheduledExecutorService;
+    private AtomicBoolean stoppedAtomicBoolean=new AtomicBoolean(false);
+    private final Object refreshPairDataLock = new Object();
+    private final Object startTickerEngineLock = new Object();
+    private boolean withProvidedCurrencyPairs;
+    private final Set<ChartDataReceiver> chartDataSubscribers=new HashSet<>();
+    private int relativeChangeNumCandles;
+    private AtomicInteger chartDataProviderNumCandles;
+    private boolean useChartDataOpenCloseAsTicker=false;
+
+    private CryptonoseGenericEngine(ExchangeSpecs exchangeSpecs,
+                                    EngineChangesReceiver engineChangesReceiver,
+                                    int[] timePeriods,
+                                    int relativeChangeNumCandles,
+                                    boolean withProvidedCurrencyPairs,
+                                    String[] pairs,
+                                    String counterCurrencySymbol,
+                                    double minVolume) {
+        this.exchangeSpecs=exchangeSpecs;
+        Arrays.stream(timePeriods).forEach(timePeriod->this.timePeriods.add(timePeriod));
+        this.relativeChangeNumCandles =relativeChangeNumCandles;
+        chartDataProviderNumCandles=new AtomicInteger(relativeChangeNumCandles);
+        super.engineChangesReceiver=engineChangesReceiver;
+        cryptonoseEngineChangesChecker = new CryptonoseEngineChangesChecker(timePeriods);
+        this.withProvidedCurrencyPairs=withProvidedCurrencyPairs;
+        this.pairs=pairs;
+        this.counterCurrencySymbol=counterCurrencySymbol;
+        this.minVolume=minVolume;
+    }
+
+    public static CryptonoseGenericEngine withProviderCurrencyPairs(ExchangeSpecs exchangeSpecs, EngineChangesReceiver engineChangesReceiver, int[] timePeriods,int relativeChangeNumCandles, String[] paris) {
+        return new CryptonoseGenericEngine(exchangeSpecs,engineChangesReceiver,timePeriods,relativeChangeNumCandles,true,paris,null,0);
+    }
+
+    public static CryptonoseGenericEngine withoutProviderCurrencyPairs(ExchangeSpecs exchangeSpecs, EngineChangesReceiver engineChangesReceiver, int[] timePeriods,int relativeChangeNumCandles,String counterCurrencySymbol, double minVolume) {
+        return new CryptonoseGenericEngine(exchangeSpecs,engineChangesReceiver,timePeriods,relativeChangeNumCandles,false,null,counterCurrencySymbol,minVolume);
+    }
+
+    @Override
+    public void start() {
+        fetchPairsData();
+        startTickerEngine();
+    }
+
+    @Override
+    public void stop() {
+        stopFetchPairsData();
+        stopTickerEngine();
+        if(scheduledExecutorService!=null)
+            scheduledExecutorService.shutdown();
+    }
+
+    @Override
+    public void useChartDataOpenCloseAsTicker() {
+        useChartDataOpenCloseAsTicker=true;
+    }
+
+    @Override
+    public void autoRefreshPairData(int intervalMinutes) {
+        if(scheduledExecutorService==null || scheduledExecutorService.isShutdown())
+            scheduledExecutorService= Executors.newScheduledThreadPool(1);
+        scheduledExecutorService.scheduleWithFixedDelay(()->refresh(),intervalMinutes,intervalMinutes, TimeUnit.MINUTES);
+    }
+
+    public void requestAdditionalChartDataPeriodSeconds(int periodSeconds) {
+        timePeriods.add(periodSeconds);
+    }
+
+    public void subscribeChartData(ChartDataReceiver chartDataReceiver,int minimumNumCandles) {
+        chartDataSubscribers.add(chartDataReceiver);
+        if(chartDataProviderNumCandles.get()<minimumNumCandles)
+            chartDataProviderNumCandles.set(minimumNumCandles);
+    }
+
+    public ChartCandle[] requestCandlesGeneration(String symbol, int periodSeconds) throws IllegalArgumentException {
+        if(chartDataProvider!=null)
+            return chartDataProvider.requestCandlesGeneration(symbol,periodSeconds);
+        else return null;
+    }
+
+
+    private void refresh() {
+        logger.info("Refreshing pairs data and reconnecting websocket...");
+        try {
+            logger.info("Canceling refresh pair data if active...");
+            stopFetchPairsData();
+            logger.fine("Refreshing pairs data...");
+            fetchPairsData();
+            stopTickerEngine();
+            startTickerEngine();
+        } catch (Exception e) {
+            logger.log(Level.SEVERE,"when restarting ticker engine",e);
+        }
+    }
+
+    private void fetchPairsData() {
+        synchronized (refreshPairDataLock) {
+            stoppedAtomicBoolean.set(false);
+            if (!withProvidedCurrencyPairs) {
+                engineMessageReceiver.message(new EngineMessage(EngineMessage.INFO, "Getting currency pairs..."));
+                RepeatTillSuccess.planTask(this::getPairs, (e) -> logger.log(Level.WARNING, "when getting currency pairs", e), GET_DATA_RETRY_INTERVAL);
+                engineMessageReceiver.message(new EngineMessage(EngineMessage.INFO, "Got currency pairs"));
+            }
+            engineMessageReceiver.message(new EngineMessage(EngineMessage.INFO, String.format("Selected %d pairs: %s", pairs.length, Arrays.stream(pairs).collect(Collectors.joining(", ")))));
+            if (stoppedAtomicBoolean.get())
+                return;
+            engineMessageReceiver.message(new EngineMessage(EngineMessage.INFO, "Getting chart data..."));
+            int[] timePeriodsArray = timePeriods.stream().mapToInt(timePeriod -> timePeriod.intValue()).toArray();
+            chartDataProvider = new ChartDataProvider(exchangeSpecs, pairs, timePeriodsArray);
+            chartDataProvider.enableCandlesGenerator();
+            for (ChartDataReceiver currentChartDataSubscriber : chartDataSubscribers)
+                chartDataProvider.subscribeChartCandles(currentChartDataSubscriber, chartDataProviderNumCandles.get());
+            if(useChartDataOpenCloseAsTicker)
+                enableUseLastCandleOpenCloseAsTicker();
+            relativeChangesChecker = new RelativeChangesChecker(chartDataProvider, relativeChangeNumCandles);
+        }
+        RepeatTillSuccess.planTask(() -> chartDataProvider.refreshData(), (e) -> {
+            engineMessageReceiver.message(new EngineMessage(EngineMessage.INFO, "Error getting chart data"));
+            logger.log(Level.WARNING, "when getting chart data", e);
+        }, GET_DATA_RETRY_INTERVAL);
+        engineMessageReceiver.message(new EngineMessage(EngineMessage.INFO, "Successfully fetched chart data"));
+    }
+
+    private void startTickerEngine() {
+        synchronized (startTickerEngineLock) {
+            if(stoppedAtomicBoolean.get())
+                return;
+            engineMessageReceiver.message(new EngineMessage(EngineMessage.INFO, "Starting ticker engine..."));
+            tickerProvider = TickerProvider.forExchange(exchangeSpecs, new TickerReceiver() {
+                @Override
+                public void receiveTicker(Ticker ticker) {
+                    handleTicker(ticker);
+                }
+                @Override
+                public void receiveTickers(List<Ticker> tickers) { handleTickers(tickers); }
+                @Override
+                public void error(Throwable error) {
+                    handleError(error);
+                }
+            }, pairs);
+            RepeatTillSuccess.planTask(() -> tickerProvider.connect(), t -> logger.log(Level.WARNING, "when connecting ticker engine", t), GET_DATA_RETRY_INTERVAL);
+            engineMessageReceiver.message(new EngineMessage(EngineMessage.CONNECTED, "Connected"));
+        }
+    }
+
+    private void stopFetchPairsData() {
+        stoppedAtomicBoolean.set(true);
+        synchronized (refreshPairDataLock) {
+            if (chartDataProvider != null) {
+                logger.info("aborting ChartDataProvider");
+                chartDataProvider.abort();
+            }
+        }
+    }
+
+    private void stopTickerEngine() {
+        synchronized (startTickerEngineLock) {
+            if (tickerProvider != null) {
+                logger.info("disconnecting ticker engine...");
+                tickerProvider.disconnect();
+                tickerProvider=null;
+            }
+        }
+    }
+
+    private void enableUseLastCandleOpenCloseAsTicker() {
+        chartDataProvider.subscribeChartCandles((chartCandlesMap) -> {
+            if(!cryptonoseEngineChangesChecker.hasntReceivedTickersYet())
+                return;
+            logger.fine("using open close prices from last chart candle");
+            for (String pair : pairs)
+                for (int timePeriod : timePeriods) {
+                    ChartCandle[] candles = chartDataProvider.getCandleData(pair, timePeriod);
+                    if(candles==null || candles.length<1) {
+                        logger.warning(String.format("no candles for %s (%ds)", pair, timePeriod));
+                    } else {
+                        ChartCandle lastCandle = candles[candles.length - 1];
+                        if ((System.currentTimeMillis() / 1000 - lastCandle.getTimestampSeconds()) < timePeriod) {
+                            logger.fine(String.format("inserting %s %s (%ds) candle open and close to changes checker", new Date(lastCandle.getTimestampSeconds() * 1000).toString(), pair, timePeriod));
+                            cryptonoseEngineChangesChecker.insertTicker(new Ticker(pair, lastCandle.getOpen(), lastCandle.getTimestampSeconds()));
+                            cryptonoseEngineChangesChecker.insertTicker(new Ticker(pair, lastCandle.getClose(), System.currentTimeMillis() / 1000));
+                        }
+                    }
+                }
+        },1);
+    }
+
+    private void getPairs() throws IOException {
+        try {
+            pairs=PairDataProvider.forExchange(exchangeSpecs).getStringPairs(minVolume,counterCurrencySymbol);
+        } catch (NotImplementedException e) {
+            logger.log(Level.SEVERE,"when getting pairs",e);
+        }
+    }
+
+    private synchronized void handleTicker(Ticker ticker) {
+        logger.finest(String.format("received ticker %s",ticker.getPair()));
+        chartDataProvider.insertTicker(ticker);
+        if (engineUpdateHeartbeatReceiver != null)
+            engineUpdateHeartbeatReceiver.receiveTransactionHeartbeat();
+        PriceChanges[] priceChanges = cryptonoseEngineChangesChecker.checkChanges(ticker);
+        if(relativeChangesChecker!=null)
+            relativeChangesChecker.setRelativeChanges(priceChanges);
+        engineChangesReceiver.receiveChanges(Arrays.asList(priceChanges));
+    }
+
+    //Checking changes after inserting all tickers. This is for checking changes after big buys/sells that get divided to multiple exchange transactions.
+    private synchronized void handleTickers(List<Ticker> tickers) {
+        logger.finest(String.format("received %d tickers",tickers.size()));
+        for(Ticker ticker : tickers)
+            chartDataProvider.insertTicker(ticker);
+        if (engineUpdateHeartbeatReceiver != null)
+            engineUpdateHeartbeatReceiver.receiveTransactionHeartbeat();
+        tickers.stream().forEach(ticker -> cryptonoseEngineChangesChecker.insertTicker(ticker));
+        PriceChanges[] priceChanges = cryptonoseEngineChangesChecker.checkChanges(tickers.get(0).getPair());
+        if(relativeChangesChecker!=null)
+            relativeChangesChecker.setRelativeChanges(priceChanges);
+        engineChangesReceiver.receiveChanges(Arrays.asList(priceChanges));
+    }
+
+    private void handleError(Throwable error) {
+        logger.log(Level.WARNING,"TickerProvider error",error);
+    }
+
+}
