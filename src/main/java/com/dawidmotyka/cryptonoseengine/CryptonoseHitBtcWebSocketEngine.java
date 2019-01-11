@@ -32,8 +32,8 @@ public class CryptonoseHitBtcWebSocketEngine extends CryptonoseEngineBase implem
         try {
             engineMessageReceiver.message(new EngineMessage(EngineMessage.INFO, "Getting pair volumes..."));
             String pairs[] = Arrays.stream(hitBtcDataProvider.getSimplePairInfos()).
-                    filter((simplePairInfo -> simplePairInfo.getVolume() > minVolume && simplePairInfo.getPairName().contains("/BTC"))).
-                    map((simplePairInfo -> simplePairInfo.getPairName())).
+                    filter((simplePairInfo -> simplePairInfo.getVolume() > minVolume && simplePairInfo.getPairApiSymbol().contains("/BTC"))).
+                    map((simplePairInfo -> simplePairInfo.getPairApiSymbol())).
                     toArray(String[]::new);
             engineMessageReceiver.message(new EngineMessage(EngineMessage.INFO, String.format("%d pairs satisfy the volume condition.", pairs.length)));
             hitBtcWebSocket = new HitBtcWebSocket(pairs, this);
