@@ -233,6 +233,7 @@ public class CryptonoseGenericEngine extends CryptonoseEngineBase {
                 pairsArrayList.addAll(Arrays.asList(pairs));
             PairDataProvider pairDataProvider = PairDataProvider.forExchange(exchangeSpecs);
             pairsArrayList.addAll(Arrays.asList(pairDataProvider.getPairsApiSymbols(pairSelectionCriteria)));
+            pairs=pairsArrayList.toArray(new String[pairsArrayList.size()]);
         } catch (NotImplementedException e) {
             logger.log(Level.SEVERE,"when getting pairs",e);
         }
