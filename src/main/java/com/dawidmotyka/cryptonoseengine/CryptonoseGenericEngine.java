@@ -7,6 +7,7 @@ import com.dawidmotyka.exchangeutils.chartdataprovider.ChartDataReceiver;
 import com.dawidmotyka.exchangeutils.chartinfo.ChartCandle;
 import com.dawidmotyka.exchangeutils.exchangespecs.ExchangeSpecs;
 import com.dawidmotyka.exchangeutils.pairdataprovider.PairDataProvider;
+import com.dawidmotyka.exchangeutils.pairdataprovider.PairSelectionCriteria;
 import com.dawidmotyka.exchangeutils.tickerprovider.Ticker;
 import com.dawidmotyka.exchangeutils.tickerprovider.TickerProvider;
 import com.dawidmotyka.exchangeutils.tickerprovider.TickerReceiver;
@@ -32,10 +33,9 @@ public class CryptonoseGenericEngine extends CryptonoseEngineBase {
     public static final int GET_DATA_RETRY_INTERVAL=60000;
 
     private ExchangeSpecs exchangeSpecs;
-    private String counterCurrencySymbol;
-    private double minVolume;
     private List<Integer> timePeriods=new ArrayList<>(5);
     private String[] pairs;
+    private PairSelectionCriteria[] pairSelectionCriteria;
     private TickerProvider tickerProvider;
     private ChartDataProvider chartDataProvider;
     private RelativeChangesChecker relativeChangesChecker;
@@ -44,7 +44,6 @@ public class CryptonoseGenericEngine extends CryptonoseEngineBase {
     private AtomicBoolean stoppedAtomicBoolean=new AtomicBoolean(false);
     private final Object refreshPairDataLock = new Object();
     private final Object startTickerEngineLock = new Object();
-    private boolean withProvidedCurrencyPairs;
     private final Set<ChartDataReceiver> chartDataSubscribers=new HashSet<>();
     private int relativeChangeNumCandles;
     private AtomicInteger chartDataProviderNumCandles;
@@ -54,28 +53,28 @@ public class CryptonoseGenericEngine extends CryptonoseEngineBase {
                                     EngineChangesReceiver engineChangesReceiver,
                                     int[] timePeriods,
                                     int relativeChangeNumCandles,
-                                    boolean withProvidedCurrencyPairs,
-                                    String[] pairs,
-                                    String counterCurrencySymbol,
-                                    double minVolume) {
+                                    PairSelectionCriteria[] pairSelectionCriteria,
+                                    String[] pairs) {
         this.exchangeSpecs=exchangeSpecs;
         Arrays.stream(timePeriods).forEach(timePeriod->this.timePeriods.add(timePeriod));
         this.relativeChangeNumCandles =relativeChangeNumCandles;
         chartDataProviderNumCandles=new AtomicInteger(relativeChangeNumCandles);
         super.engineChangesReceiver=engineChangesReceiver;
         cryptonoseEngineChangesChecker = new CryptonoseEngineChangesChecker(timePeriods);
-        this.withProvidedCurrencyPairs=withProvidedCurrencyPairs;
+        this.pairSelectionCriteria=pairSelectionCriteria;
         this.pairs=pairs;
-        this.counterCurrencySymbol=counterCurrencySymbol;
-        this.minVolume=minVolume;
     }
 
-    public static CryptonoseGenericEngine withProviderCurrencyPairs(ExchangeSpecs exchangeSpecs, EngineChangesReceiver engineChangesReceiver, int[] timePeriods,int relativeChangeNumCandles, String[] paris) {
-        return new CryptonoseGenericEngine(exchangeSpecs,engineChangesReceiver,timePeriods,relativeChangeNumCandles,true,paris,null,0);
+    public static CryptonoseGenericEngine withProvidedCurrencyPairs(ExchangeSpecs exchangeSpecs, EngineChangesReceiver engineChangesReceiver, int[] timePeriods, int relativeChangeNumCandles, String[] paris) {
+        return new CryptonoseGenericEngine(exchangeSpecs,engineChangesReceiver,timePeriods,relativeChangeNumCandles,null,paris);
     }
 
-    public static CryptonoseGenericEngine withoutProviderCurrencyPairs(ExchangeSpecs exchangeSpecs, EngineChangesReceiver engineChangesReceiver, int[] timePeriods,int relativeChangeNumCandles,String counterCurrencySymbol, double minVolume) {
-        return new CryptonoseGenericEngine(exchangeSpecs,engineChangesReceiver,timePeriods,relativeChangeNumCandles,false,null,counterCurrencySymbol,minVolume);
+    public static CryptonoseGenericEngine withProvidedMarkets(ExchangeSpecs exchangeSpecs, EngineChangesReceiver engineChangesReceiver, int[] timePeriods,int relativeChangeNumCandles,PairSelectionCriteria[] pairSelectionCriteria) {
+        return new CryptonoseGenericEngine(exchangeSpecs,engineChangesReceiver,timePeriods,relativeChangeNumCandles,pairSelectionCriteria,null);
+    }
+
+    public static CryptonoseGenericEngine withProvidedMarketsAndPairs(ExchangeSpecs exchangeSpecs, EngineChangesReceiver engineChangesReceiver, int[] timePeriods,int relativeChangeNumCandles,PairSelectionCriteria[] pairSelectionCriteria, String[] pairs) {
+        return new CryptonoseGenericEngine(exchangeSpecs,engineChangesReceiver,timePeriods,relativeChangeNumCandles,pairSelectionCriteria,pairs);
     }
 
     @Override
@@ -138,7 +137,7 @@ public class CryptonoseGenericEngine extends CryptonoseEngineBase {
     private void fetchPairsData() {
         synchronized (refreshPairDataLock) {
             stoppedAtomicBoolean.set(false);
-            if (!withProvidedCurrencyPairs) {
+            if (pairSelectionCriteria!=null) {
                 engineMessageReceiver.message(new EngineMessage(EngineMessage.INFO, "Getting currency pairs..."));
                 RepeatTillSuccess.planTask(this::getPairs, (e) -> logger.log(Level.WARNING, "when getting currency pairs", e), GET_DATA_RETRY_INTERVAL);
                 engineMessageReceiver.message(new EngineMessage(EngineMessage.INFO, "Got currency pairs"));
@@ -229,7 +228,11 @@ public class CryptonoseGenericEngine extends CryptonoseEngineBase {
 
     private void getPairs() throws IOException {
         try {
-            pairs=PairDataProvider.forExchange(exchangeSpecs).getStringPairs(minVolume,counterCurrencySymbol);
+            ArrayList<String> pairsArrayList = new ArrayList<>();
+            if(pairs!=null)
+                pairsArrayList.addAll(Arrays.asList(pairs));
+            PairDataProvider pairDataProvider = PairDataProvider.forExchange(exchangeSpecs);
+            pairsArrayList.addAll(Arrays.asList(pairDataProvider.getPairsApiSymbols(pairSelectionCriteria)));
         } catch (NotImplementedException e) {
             logger.log(Level.SEVERE,"when getting pairs",e);
         }
