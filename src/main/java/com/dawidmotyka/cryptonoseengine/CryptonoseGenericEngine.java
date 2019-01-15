@@ -164,6 +164,8 @@ public class CryptonoseGenericEngine extends CryptonoseEngineBase {
             engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, "Error getting chart data"));
             logger.log(Level.WARNING, "when getting chart data", e);
         }, GET_DATA_RETRY_INTERVAL);
+        if (stoppedAtomicBoolean.get())
+            return false;
         engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, "Successfully fetched chart data"));
         return true;
     }
