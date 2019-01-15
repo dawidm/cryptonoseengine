@@ -5,22 +5,25 @@ package com.dawidmotyka.cryptonoseengine;
  */
 public class EngineMessage {
 
-    public static final int CONNECTED = 2;
-    public static final int CONNECTING = 1;
-    public static final int DISCONNECTED = 10;
-    public static final int ERROR = -1;
-    public static final int INFO = 20;
+    public enum Type {
+        CONNECTED,
+        CONNECTING,
+        DISCONNECTED,
+        ERROR,
+        INFO,
+        NO_PAIRS
+    }
 
-    private int code;
+    private Type type;
     private String message;
 
-    public EngineMessage(int code, String message) {
-        this.code=code;
+    public EngineMessage(Type type, String message) {
+        this.type=type;
         this.message=message;
     }
 
-    public int getCode() {
-        return code;
+    public Type getCode() {
+        return type;
     }
     public String getMessage() {
         return message;

@@ -138,14 +138,14 @@ public class CryptonoseGenericEngine extends CryptonoseEngineBase {
         synchronized (refreshPairDataLock) {
             stoppedAtomicBoolean.set(false);
             if (pairSelectionCriteria!=null) {
-                engineMessageReceiver.message(new EngineMessage(EngineMessage.INFO, "Getting currency pairs..."));
+                engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, "Getting currency pairs..."));
                 RepeatTillSuccess.planTask(this::getPairs, (e) -> logger.log(Level.WARNING, "when getting currency pairs", e), GET_DATA_RETRY_INTERVAL);
-                engineMessageReceiver.message(new EngineMessage(EngineMessage.INFO, "Got currency pairs"));
+                engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, "Got currency pairs"));
             }
-            engineMessageReceiver.message(new EngineMessage(EngineMessage.INFO, String.format("Selected %d pairs: %s", pairs.length, Arrays.stream(pairs).collect(Collectors.joining(", ")))));
+            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, String.format("Selected %d pairs: %s", pairs.length, Arrays.stream(pairs).collect(Collectors.joining(", ")))));
             if (stoppedAtomicBoolean.get())
                 return;
-            engineMessageReceiver.message(new EngineMessage(EngineMessage.INFO, "Getting chart data..."));
+            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, "Getting chart data..."));
             int[] timePeriodsArray = timePeriods.stream().mapToInt(timePeriod -> timePeriod.intValue()).toArray();
             chartDataProvider = new ChartDataProvider(exchangeSpecs, pairs, timePeriodsArray);
             chartDataProvider.enableCandlesGenerator();
@@ -156,17 +156,17 @@ public class CryptonoseGenericEngine extends CryptonoseEngineBase {
             relativeChangesChecker = new RelativeChangesChecker(chartDataProvider, relativeChangeNumCandles);
         }
         RepeatTillSuccess.planTask(() -> chartDataProvider.refreshData(), (e) -> {
-            engineMessageReceiver.message(new EngineMessage(EngineMessage.INFO, "Error getting chart data"));
+            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, "Error getting chart data"));
             logger.log(Level.WARNING, "when getting chart data", e);
         }, GET_DATA_RETRY_INTERVAL);
-        engineMessageReceiver.message(new EngineMessage(EngineMessage.INFO, "Successfully fetched chart data"));
+        engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, "Successfully fetched chart data"));
     }
 
     private void startTickerEngine() {
         synchronized (startTickerEngineLock) {
             if(stoppedAtomicBoolean.get())
                 return;
-            engineMessageReceiver.message(new EngineMessage(EngineMessage.INFO, "Starting ticker engine..."));
+            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, "Starting ticker engine..."));
             tickerProvider = TickerProvider.forExchange(exchangeSpecs, new TickerReceiver() {
                 @Override
                 public void receiveTicker(Ticker ticker) {
@@ -180,7 +180,7 @@ public class CryptonoseGenericEngine extends CryptonoseEngineBase {
                 }
             }, pairs);
             RepeatTillSuccess.planTask(() -> tickerProvider.connect(), t -> logger.log(Level.WARNING, "when connecting ticker engine", t), GET_DATA_RETRY_INTERVAL);
-            engineMessageReceiver.message(new EngineMessage(EngineMessage.CONNECTED, "Connected"));
+            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.CONNECTED, "Connected"));
         }
     }
 
