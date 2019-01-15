@@ -236,12 +236,12 @@ public class CryptonoseGenericEngine extends CryptonoseEngineBase {
 
     private void getPairs() throws IOException {
         try {
-            ArrayList<String> pairsArrayList = new ArrayList<>();
+            Set<String> pairsArraySet = new HashSet<>();
             if(pairs!=null)
-                pairsArrayList.addAll(Arrays.asList(pairs));
+                pairsArraySet.addAll(Arrays.asList(pairs));
             PairDataProvider pairDataProvider = PairDataProvider.forExchange(exchangeSpecs);
-            pairsArrayList.addAll(Arrays.asList(pairDataProvider.getPairsApiSymbols(pairSelectionCriteria)));
-            pairs=pairsArrayList.toArray(new String[pairsArrayList.size()]);
+            pairsArraySet.addAll(Arrays.asList(pairDataProvider.getPairsApiSymbols(pairSelectionCriteria)));
+            pairs=pairsArraySet.toArray(new String[pairsArraySet.size()]);
         } catch (NotImplementedException e) {
             logger.log(Level.SEVERE,"when getting pairs",e);
         }
