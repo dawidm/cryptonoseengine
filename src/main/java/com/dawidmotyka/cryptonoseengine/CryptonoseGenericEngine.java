@@ -140,7 +140,10 @@ public class CryptonoseGenericEngine extends CryptonoseEngineBase {
             if (pairSelectionCriteria!=null) {
                 engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, "Getting currency pairs..."));
                 RepeatTillSuccess.planTask(this::getPairs, (e) -> logger.log(Level.WARNING, "when getting currency pairs", e), GET_DATA_RETRY_INTERVAL);
-                engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, "Got currency pairs"));
+                if(pairs.length>0)
+                    engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, "Got currency pairs"));
+                else
+                    engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.NO_PAIRS,"Got 0 currency pairs"));
             }
             engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, String.format("Selected %d pairs: %s", pairs.length, Arrays.stream(pairs).collect(Collectors.joining(", ")))));
             if (stoppedAtomicBoolean.get())
