@@ -8,6 +8,7 @@ import com.dawidmotyka.exchangeutils.chartinfo.ChartCandle;
 import com.dawidmotyka.exchangeutils.exchangespecs.ExchangeSpecs;
 import com.dawidmotyka.exchangeutils.pairdataprovider.PairDataProvider;
 import com.dawidmotyka.exchangeutils.pairdataprovider.PairSelectionCriteria;
+import com.dawidmotyka.exchangeutils.pairsymbolconverter.PairSymbolConverter;
 import com.dawidmotyka.exchangeutils.tickerprovider.Ticker;
 import com.dawidmotyka.exchangeutils.tickerprovider.TickerProvider;
 import com.dawidmotyka.exchangeutils.tickerprovider.TickerReceiver;
@@ -147,7 +148,17 @@ public class CryptonoseGenericEngine extends CryptonoseEngineBase {
                     return false;
                 }
             }
-            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, String.format("Selected %d pairs: %s", pairs.length, Arrays.stream(pairs).collect(Collectors.joining(", ")))));
+            engineMessageReceiver.message(
+                    new EngineMessage(
+                            EngineMessage.Type.INFO,
+                            String.format("Selected %d pairs: %s",
+                                    pairs.length,
+                                    Arrays.stream(pairs).
+                                            map(pair-> PairSymbolConverter.toFormattedString(exchangeSpecs,pair)).
+                                            collect(Collectors.joining(", "))
+                            )
+                    )
+            );
             if (stoppedAtomicBoolean.get())
                 return false;
             engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, "Getting chart data..."));
