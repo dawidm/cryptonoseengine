@@ -39,6 +39,8 @@ public class CryptonoseEngineChangesChecker {
     public PriceChanges[] checkChanges(String pair) {
         logger.finest(String.format("checking changes for %s",pair));
         List<Ticker> currentPairTickersList = tickersMap.get(pair);
+        if(currentPairTickersList==null)
+            return null;
         Ticker lastTicker = currentPairTickersList.get(currentPairTickersList.size()-1);
         List<PriceChanges> priceChangesList = new ArrayList<>();
         Iterator<Ticker> iterator = currentPairTickersList.iterator();

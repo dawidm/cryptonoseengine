@@ -122,8 +122,11 @@ public class CryptonoseGenericEngine extends CryptonoseEngineBase {
 
     public PriceChanges[] requestAllPairsChanges() {
         ArrayList<PriceChanges> changesArrayList = new ArrayList(pairs.length*timePeriods.size());
-        for(String pair : pairs)
-            changesArrayList.addAll(Arrays.asList(cryptonoseEngineChangesChecker.checkChanges(pair)));
+        for(String pair : pairs) {
+            PriceChanges[] priceChanges = cryptonoseEngineChangesChecker.checkChanges(pair);
+            if(priceChanges!=null)
+                changesArrayList.addAll(Arrays.asList(priceChanges));
+        }
         return changesArrayList.toArray(new PriceChanges[changesArrayList.size()]);
     }
 
