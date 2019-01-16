@@ -209,7 +209,18 @@ public class CryptonoseGenericEngine extends CryptonoseEngineBase {
                     handleError(error);
                 }
             }, pairs);
-            RepeatTillSuccess.planTask(() -> tickerProvider.connect(), t -> logger.log(Level.WARNING, "when connecting ticker engine", t), GET_DATA_RETRY_INTERVAL);
+            RepeatTillSuccess.planTask(() -> {
+                tickerProvider.connect(tickerProviderConnectionState -> {
+                    switch (tickerProviderConnectionState) {
+                        case CONNECTED:
+                            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.CONNECTED,""));
+                            break;
+                        case DISCONNECTED:
+                            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.DISCONNECTED,""));
+                            break;
+                    }
+                });
+            }, t->logger.log(Level.WARNING, "when connecting ticker engine", t), GET_DATA_RETRY_INTERVAL);
             engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.CONNECTED, "Connected"));
         }
     }
