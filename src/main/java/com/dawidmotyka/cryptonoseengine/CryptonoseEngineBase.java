@@ -32,4 +32,5 @@ public abstract class CryptonoseEngineBase {
     public abstract void subscribeChartData(ChartDataReceiver chartDataReceiver, int numCandles);
     public abstract void requestAdditionalChartDataPeriodSeconds(int periodsSeconds);
     public abstract ChartCandle[] requestCandlesGeneration(String symbol, int periodSeconds) throws IllegalArgumentException;
+    public abstract PriceChanges[] requestAllPairsChanges();
 }

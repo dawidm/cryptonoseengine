@@ -120,6 +120,12 @@ public class CryptonoseGenericEngine extends CryptonoseEngineBase {
         else return null;
     }
 
+    public PriceChanges[] requestAllPairsChanges() {
+        ArrayList<PriceChanges> changesArrayList = new ArrayList(pairs.length*timePeriods.size());
+        for(String pair : pairs)
+            changesArrayList.addAll(Arrays.asList(cryptonoseEngineChangesChecker.checkChanges(pair)));
+        return changesArrayList.toArray(new PriceChanges[changesArrayList.size()]);
+    }
 
     private void refresh() {
         logger.info("Refreshing pairs data and reconnecting websocket...");
