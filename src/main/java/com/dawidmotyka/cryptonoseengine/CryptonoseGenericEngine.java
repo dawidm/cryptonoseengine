@@ -124,6 +124,8 @@ public class CryptonoseGenericEngine extends CryptonoseEngineBase {
         ArrayList<PriceChanges> changesArrayList = new ArrayList(pairs.length*timePeriods.size());
         for(String pair : pairs) {
             PriceChanges[] priceChanges = cryptonoseEngineChangesChecker.checkChanges(pair);
+            if(relativeChangesChecker!=null)
+                relativeChangesChecker.setRelativeChanges(priceChanges);
             if(priceChanges!=null)
                 changesArrayList.addAll(Arrays.asList(priceChanges));
         }
