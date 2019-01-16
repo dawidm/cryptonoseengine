@@ -213,15 +213,14 @@ public class CryptonoseGenericEngine extends CryptonoseEngineBase {
                 tickerProvider.connect(tickerProviderConnectionState -> {
                     switch (tickerProviderConnectionState) {
                         case CONNECTED:
-                            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.CONNECTED,""));
+                            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.CONNECTED,"Connected"));
                             break;
                         case DISCONNECTED:
-                            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.DISCONNECTED,""));
+                            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.DISCONNECTED,"Disconnected"));
                             break;
                     }
                 });
             }, t->logger.log(Level.WARNING, "when connecting ticker engine", t), GET_DATA_RETRY_INTERVAL);
-            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.CONNECTED, "Connected"));
         }
     }
 
