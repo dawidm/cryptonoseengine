@@ -203,6 +203,9 @@ public class CryptonoseGenericEngine {
                     engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, "Error getting additional chart data"));
                     logger.log(Level.WARNING, "when getting chart data", e);
                 }, GET_DATA_RETRY_INTERVAL);
+            } else {
+                logger.fine("using lowest period chart data as tickers");
+                useLowestPeriodCandlesAsTickers();
             }
             if (stoppedAtomicBoolean.get())
                 return false;
@@ -287,21 +290,30 @@ public class CryptonoseGenericEngine {
                 mapToInt(chartTimePeriod -> (int)chartTimePeriod.getPeriodLengthSeconds()).
                 min().getAsInt();
         double MAX_MULTIPLIER = 1440;
-        if(((double)minPeriod)/minAvailableExchangePeriod < MAX_MULTIPLIER) {
+        if(((double)minPeriod)/minAvailableExchangePeriod < MAX_MULTIPLIER && minPeriod!=minAvailableExchangePeriod) {
             int numCandles = maxPeriod/minAvailableExchangePeriod;
             return new PeriodNumCandles(minAvailableExchangePeriod,numCandles);
         }
         return null;
     }
 
+    private void useLowestPeriodCandlesAsTickers() {
+        int minTimePeriod = periodsNumCandles.stream().mapToInt(p -> p.getPeriodSeconds()).min().getAsInt();
+        handleAdditionalChartData(chartDataProvider.getAllCandleDataForPeriod(minTimePeriod));
+    }
+
     private void handleAdditionalChartData(Map<CurrencyPairTimePeriod,ChartCandle[]> chartCandlesMap) {
         List<Ticker> tickersList = new ArrayList<>(2*chartCandlesMap.values().stream().collect(Collectors.summingInt(chartCandles->chartCandles.length)));
+        int maxTimePeriod = periodsNumCandles.stream().mapToInt(p -> p.getPeriodSeconds()).max().getAsInt();
         chartCandlesMap.entrySet().stream().forEach(entry-> {
             CurrencyPairTimePeriod currencyPairTimePeriod = entry.getKey();
             ChartCandle[] chartCandles = entry.getValue();
             Arrays.stream(chartCandles).forEach(chartCandle -> {
-                tickersList.add(new Ticker(currencyPairTimePeriod.getCurrencyPairSymbol(),chartCandle.getOpen(),chartCandle.getTimestampSeconds()));
-                tickersList.add(new Ticker(currencyPairTimePeriod.getCurrencyPairSymbol(),chartCandle.getClose(),chartCandle.getTimestampSeconds()+currencyPairTimePeriod.getTimePeriodSeconds()));
+                int currentTimestampSeconds=(int)(System.currentTimeMillis()/1000);
+                if(chartCandle.getTimestampSeconds()>currentTimestampSeconds-maxTimePeriod) {
+                    tickersList.add(new Ticker(currencyPairTimePeriod.getCurrencyPairSymbol(), chartCandle.getOpen(), chartCandle.getTimestampSeconds()));
+                    tickersList.add(new Ticker(currencyPairTimePeriod.getCurrencyPairSymbol(), chartCandle.getClose(), chartCandle.getTimestampSeconds() + currencyPairTimePeriod.getTimePeriodSeconds()));
+                }
             });
         });
         handleTickers(tickersList);
