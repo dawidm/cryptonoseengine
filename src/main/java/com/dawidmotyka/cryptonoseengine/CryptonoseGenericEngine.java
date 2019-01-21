@@ -204,10 +204,10 @@ public class CryptonoseGenericEngine {
                     logger.log(Level.WARNING, "when getting chart data", e);
                 }, GET_DATA_RETRY_INTERVAL);
             }
+            if (stoppedAtomicBoolean.get())
+                return false;
+            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, "Successfully fetched additional chart data"));
         }
-        if (stoppedAtomicBoolean.get())
-            return false;
-        engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, "Successfully fetched additional chart data"));
         return true;
     }
 
