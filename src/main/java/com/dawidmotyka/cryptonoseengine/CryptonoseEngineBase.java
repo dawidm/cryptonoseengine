@@ -6,6 +6,8 @@
 package com.dawidmotyka.cryptonoseengine;
 
 import com.dawidmotyka.exchangeutils.chartdataprovider.ChartDataReceiver;
+import com.dawidmotyka.exchangeutils.chartdataprovider.CurrencyPairTimePeriod;
+import com.dawidmotyka.exchangeutils.chartdataprovider.PeriodNumCandles;
 import com.dawidmotyka.exchangeutils.chartinfo.ChartCandle;
 
 /**
@@ -27,10 +29,9 @@ public abstract class CryptonoseEngineBase {
 
     public abstract void start();
     public abstract void stop();
-    public abstract void useChartDataOpenCloseAsTicker();
     public abstract void autoRefreshPairData(int intervalMinutes);
-    public abstract void subscribeChartData(ChartDataReceiver chartDataReceiver, int numCandles);
-    public abstract void requestAdditionalChartDataPeriodSeconds(int periodsSeconds);
-    public abstract ChartCandle[] requestCandlesGeneration(String symbol, int periodSeconds) throws IllegalArgumentException;
+    public abstract void subscribeChartData(ChartDataReceiver chartDataReceiver);
+    public abstract void requestAdditionalChartData(PeriodNumCandles periodNumCandles);
+    public abstract ChartCandle[] requestCandlesGeneration(CurrencyPairTimePeriod currencyPairTimePeriod) throws IllegalArgumentException;
     public abstract PriceChanges[] requestAllPairsChanges();
 }
