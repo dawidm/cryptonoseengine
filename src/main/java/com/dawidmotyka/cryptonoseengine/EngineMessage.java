@@ -9,6 +9,7 @@ public class EngineMessage {
         CONNECTED,
         CONNECTING,
         DISCONNECTED,
+        RECONNECTING,
         ERROR,
         INFO,
         NO_PAIRS

@@ -130,10 +130,11 @@ public class CryptonoseGenericEngine {
         ArrayList<PriceChanges> changesArrayList = new ArrayList(pairs.length*periodsNumCandles.size());
         for(String pair : pairs) {
             PriceChanges[] priceChanges = cryptonoseEngineChangesChecker.checkChanges(pair);
+            if(priceChanges==null)
+                continue;
             if(relativeChangesChecker!=null)
                 relativeChangesChecker.setRelativeChanges(priceChanges);
-            if(priceChanges!=null)
-                changesArrayList.addAll(Arrays.asList(priceChanges));
+            changesArrayList.addAll(Arrays.asList(priceChanges));
         }
         return changesArrayList.toArray(new PriceChanges[changesArrayList.size()]);
     }
@@ -239,6 +240,9 @@ public class CryptonoseGenericEngine {
                             break;
                         case DISCONNECTED:
                             engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.DISCONNECTED,"Disconnected"));
+                            break;
+                        case RECONNECTING:
+                            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.RECONNECTING,"Reconnecting..."));
                             break;
                     }
                 });
