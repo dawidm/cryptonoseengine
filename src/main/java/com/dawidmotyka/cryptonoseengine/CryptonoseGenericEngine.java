@@ -149,7 +149,7 @@ public class CryptonoseGenericEngine {
             stopTickerEngine();
             startTickerEngine();
         } catch (Exception e) {
-            logger.log(Level.SEVERE,"when restarting ticker engine",e);
+            logger.log(Level.SEVERE,"when restarting ticker provider",e);
         }
     }
 
@@ -219,7 +219,7 @@ public class CryptonoseGenericEngine {
         synchronized (startTickerEngineLock) {
             if(stoppedAtomicBoolean.get())
                 return;
-            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, "Starting ticker engine..."));
+            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, "Starting ticker provider..."));
             tickerProvider = TickerProvider.forExchange(exchangeSpecs, new TickerReceiver() {
                 @Override
                 public void receiveTicker(Ticker ticker) {
@@ -246,7 +246,7 @@ public class CryptonoseGenericEngine {
                             break;
                     }
                 });
-            }, t->logger.log(Level.WARNING, "when connecting ticker engine", t), GET_DATA_RETRY_INTERVAL);
+            }, t->logger.log(Level.WARNING, "when connecting ticker provider", t), GET_DATA_RETRY_INTERVAL);
         }
     }
 
@@ -267,7 +267,7 @@ public class CryptonoseGenericEngine {
     private void stopTickerEngine() {
         synchronized (startTickerEngineLock) {
             if (tickerProvider != null) {
-                logger.info("disconnecting ticker engine...");
+                logger.info("disconnecting ticker provider...");
                 tickerProvider.disconnect();
             }
         }
