@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.dawidmotyka</groupId>
+    <groupId>pl.dmotyka</groupId>
     <artifactId>cryptonoseengine</artifactId>
     <version>1.2.0</version>
 
@@ -22,14 +22,14 @@
     </build>
     <dependencies>
         <dependency>
-            <groupId>com.dawidmotyka</groupId>
+            <groupId>pl.dmotyka</groupId>
             <artifactId>exchangeutils</artifactId>
-            <version>1.3.0</version>
+            <version>1.4.0</version>
         </dependency>
         <dependency>
-            <groupId>com.dawidmotyka</groupId>
+            <groupId>pl.dmotyka</groupId>
             <artifactId>dmutils</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <version>1.0.0</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/org.apache.commons/commons-math3 -->
         <dependency>

@@ -1,7 +1,6 @@
 package com.dawidmotyka.cryptonoseengine;
 
-import com.dawidmotyka.dmutils.RepeatTillSuccess;
-import com.dawidmotyka.exchangeutils.NotImplementedException;
+import com.dawidmotyka.dmutils.runtime.RepeatTillSuccess;
 import com.dawidmotyka.exchangeutils.chartdataprovider.ChartDataProvider;
 import com.dawidmotyka.exchangeutils.chartdataprovider.ChartDataReceiver;
 import com.dawidmotyka.exchangeutils.chartdataprovider.CurrencyPairTimePeriod;
@@ -9,6 +8,7 @@ import com.dawidmotyka.exchangeutils.chartdataprovider.PeriodNumCandles;
 import com.dawidmotyka.exchangeutils.chartinfo.ChartCandle;
 import com.dawidmotyka.exchangeutils.chartinfo.ChartTimePeriod;
 import com.dawidmotyka.exchangeutils.chartinfo.ExchangeChartInfo;
+import com.dawidmotyka.exchangeutils.exceptions.NotImplementedException;
 import com.dawidmotyka.exchangeutils.exchangespecs.ExchangeSpecs;
 import com.dawidmotyka.exchangeutils.pairdataprovider.PairDataProvider;
 import com.dawidmotyka.exchangeutils.pairdataprovider.PairSelectionCriteria;
@@ -282,11 +282,12 @@ public class CryptonoseGenericEngine {
             pairsArraySet.addAll(Arrays.asList(pairDataProvider.getPairsApiSymbols(pairSelectionCriteria)));
             pairs=pairsArraySet.toArray(new String[pairsArraySet.size()]);
         } catch (NotImplementedException e) {
-            logger.log(Level.SEVERE,"when getting pairs",e);
+            logger.severe("when gettings pairs: "+e);
+            throw new RuntimeException(e);
         }
     }
 
-    //returns PeriodNumCandles id tickers can be generated, otherwise null
+    //returns PeriodNumCandles if tickers can be generated, otherwise null
     private PeriodNumCandles checkGenTickersFromChartData() {
         int minPeriod = periodsNumCandles.stream().mapToInt(periodNumCandles -> periodNumCandles.getPeriodSeconds()).min().getAsInt();
         int maxPeriod = periodsNumCandles.stream().mapToInt(periodNumCandles -> periodNumCandles.getPeriodSeconds()).max().getAsInt();
