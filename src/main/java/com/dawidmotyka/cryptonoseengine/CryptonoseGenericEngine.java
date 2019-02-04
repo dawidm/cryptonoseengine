@@ -17,8 +17,6 @@ import com.dawidmotyka.exchangeutils.chartdataprovider.CurrencyPairTimePeriod;
 import com.dawidmotyka.exchangeutils.chartdataprovider.PeriodNumCandles;
 import com.dawidmotyka.exchangeutils.chartinfo.ChartCandle;
 import com.dawidmotyka.exchangeutils.chartinfo.ChartTimePeriod;
-import com.dawidmotyka.exchangeutils.chartinfo.ExchangeChartInfo;
-import com.dawidmotyka.exchangeutils.exceptions.NotImplementedException;
 import com.dawidmotyka.exchangeutils.exchangespecs.ExchangeSpecs;
 import com.dawidmotyka.exchangeutils.pairdataprovider.PairDataProvider;
 import com.dawidmotyka.exchangeutils.pairdataprovider.PairSelectionCriteria;
@@ -284,24 +282,19 @@ public class CryptonoseGenericEngine {
     }
 
     private void getPairs() throws IOException {
-        try {
-            Set<String> pairsArraySet = new HashSet<>();
-            if(pairs!=null)
-                pairsArraySet.addAll(Arrays.asList(pairs));
-            PairDataProvider pairDataProvider = PairDataProvider.forExchange(exchangeSpecs);
-            pairsArraySet.addAll(Arrays.asList(pairDataProvider.getPairsApiSymbols(pairSelectionCriteria)));
-            pairs=pairsArraySet.toArray(new String[pairsArraySet.size()]);
-        } catch (NotImplementedException e) {
-            logger.severe("when gettings pairs: "+e);
-            throw new RuntimeException(e);
-        }
+        Set<String> pairsArraySet = new HashSet<>();
+        if(pairs!=null)
+            pairsArraySet.addAll(Arrays.asList(pairs));
+        PairDataProvider pairDataProvider = exchangeSpecs.getPairDataProvider();
+        pairsArraySet.addAll(Arrays.asList(pairDataProvider.getPairsApiSymbols(pairSelectionCriteria)));
+        pairs=pairsArraySet.toArray(new String[pairsArraySet.size()]);
     }
 
     //returns PeriodNumCandles if tickers can be generated, otherwise null
     private PeriodNumCandles checkGenTickersFromChartData() {
         int minPeriod = periodsNumCandles.stream().mapToInt(periodNumCandles -> periodNumCandles.getPeriodSeconds()).min().getAsInt();
         int maxPeriod = periodsNumCandles.stream().mapToInt(periodNumCandles -> periodNumCandles.getPeriodSeconds()).max().getAsInt();
-        int minAvailableExchangePeriod = Arrays.stream(ExchangeChartInfo.forExchange(exchangeSpecs).getAvailablePeriods()).
+        int minAvailableExchangePeriod = Arrays.stream(exchangeSpecs.getChartInfo().getAvailablePeriods()).
                 mapToInt(chartTimePeriod -> (int)chartTimePeriod.getPeriodLengthSeconds()).
                 min().getAsInt();
         double MAX_MULTIPLIER = 1440;
