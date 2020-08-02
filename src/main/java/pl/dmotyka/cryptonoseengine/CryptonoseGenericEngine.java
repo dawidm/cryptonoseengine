@@ -13,6 +13,21 @@
 
 package pl.dmotyka.cryptonoseengine;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
+
 import com.dawidmotyka.dmutils.runtime.RepeatTillSuccess;
 import pl.dmotyka.exchangeutils.chartdataprovider.ChartDataProvider;
 import pl.dmotyka.exchangeutils.chartdataprovider.ChartDataReceiver;
@@ -27,16 +42,6 @@ import pl.dmotyka.exchangeutils.pairsymbolconverter.PairSymbolConverter;
 import pl.dmotyka.exchangeutils.tickerprovider.Ticker;
 import pl.dmotyka.exchangeutils.tickerprovider.TickerProvider;
 import pl.dmotyka.exchangeutils.tickerprovider.TickerReceiver;
-
-import java.io.IOException;
-import java.util.*;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 /**
  * Created by dawid on 12/28/17.
@@ -70,7 +75,7 @@ public class CryptonoseGenericEngine {
 
     private CryptonoseGenericEngine(ExchangeSpecs exchangeSpecs,
                                     EngineChangesReceiver engineChangesReceiver,
-                                    int[] timePeriods,
+                                    long[] timePeriods,
                                     int relativeChangeNumCandles,
                                     PairSelectionCriteria[] pairSelectionCriteria,
                                     String[] pairs) {
@@ -83,15 +88,15 @@ public class CryptonoseGenericEngine {
         this.pairs=pairs;
     }
 
-    public static CryptonoseGenericEngine withProvidedCurrencyPairs(ExchangeSpecs exchangeSpecs, EngineChangesReceiver engineChangesReceiver, int[] timePeriods, int relativeChangeNumCandles, String[] paris) {
+    public static CryptonoseGenericEngine withProvidedCurrencyPairs(ExchangeSpecs exchangeSpecs, EngineChangesReceiver engineChangesReceiver, long[] timePeriods, int relativeChangeNumCandles, String[] paris) {
         return new CryptonoseGenericEngine(exchangeSpecs,engineChangesReceiver,timePeriods,relativeChangeNumCandles,null,paris);
     }
 
-    public static CryptonoseGenericEngine withProvidedMarkets(ExchangeSpecs exchangeSpecs, EngineChangesReceiver engineChangesReceiver, int[] timePeriods,int relativeChangeNumCandles,PairSelectionCriteria[] pairSelectionCriteria) {
+    public static CryptonoseGenericEngine withProvidedMarkets(ExchangeSpecs exchangeSpecs, EngineChangesReceiver engineChangesReceiver, long[] timePeriods,int relativeChangeNumCandles,PairSelectionCriteria[] pairSelectionCriteria) {
         return new CryptonoseGenericEngine(exchangeSpecs,engineChangesReceiver,timePeriods,relativeChangeNumCandles,pairSelectionCriteria,null);
     }
 
-    public static CryptonoseGenericEngine withProvidedMarketsAndPairs(ExchangeSpecs exchangeSpecs, EngineChangesReceiver engineChangesReceiver, int[] timePeriods,int relativeChangeNumCandles,PairSelectionCriteria[] pairSelectionCriteria, String[] pairs) {
+    public static CryptonoseGenericEngine withProvidedMarketsAndPairs(ExchangeSpecs exchangeSpecs, EngineChangesReceiver engineChangesReceiver, long[] timePeriods,int relativeChangeNumCandles,PairSelectionCriteria[] pairSelectionCriteria, String[] pairs) {
         return new CryptonoseGenericEngine(exchangeSpecs,engineChangesReceiver,timePeriods,relativeChangeNumCandles,pairSelectionCriteria,pairs);
     }
 
@@ -295,27 +300,27 @@ public class CryptonoseGenericEngine {
 
     //returns PeriodNumCandles if tickers can be generated, otherwise null
     private PeriodNumCandles checkGenTickersFromChartData() {
-        int minPeriod = periodsNumCandles.stream().mapToInt(periodNumCandles -> periodNumCandles.getPeriodSeconds()).min().getAsInt();
-        int maxPeriod = periodsNumCandles.stream().mapToInt(periodNumCandles -> periodNumCandles.getPeriodSeconds()).max().getAsInt();
+        long minPeriod = periodsNumCandles.stream().mapToLong(periodNumCandles -> periodNumCandles.getPeriodSeconds()).min().getAsLong();
+        long maxPeriod = periodsNumCandles.stream().mapToLong(periodNumCandles -> periodNumCandles.getPeriodSeconds()).max().getAsLong();
         int minAvailableExchangePeriod = Arrays.stream(exchangeSpecs.getChartInfo().getAvailablePeriods()).
                 mapToInt(chartTimePeriod -> (int)chartTimePeriod.getPeriodLengthSeconds()).
                 min().getAsInt();
         double MAX_MULTIPLIER = 1440;
         if(((double)minPeriod)/minAvailableExchangePeriod < MAX_MULTIPLIER && minPeriod!=minAvailableExchangePeriod) {
-            int numCandles = maxPeriod/minAvailableExchangePeriod;
+            int numCandles = (int)(maxPeriod/minAvailableExchangePeriod);
             return new PeriodNumCandles(minAvailableExchangePeriod,numCandles);
         }
         return null;
     }
 
     private void useLowestPeriodCandlesAsTickers() {
-        int minTimePeriod = periodsNumCandles.stream().mapToInt(p -> p.getPeriodSeconds()).min().getAsInt();
+        long minTimePeriod = periodsNumCandles.stream().mapToLong(p -> p.getPeriodSeconds()).min().getAsLong();
         handleAdditionalChartData(chartDataProvider.getAllCandleDataForPeriod(minTimePeriod));
     }
 
     private void handleAdditionalChartData(Map<CurrencyPairTimePeriod,ChartCandle[]> chartCandlesMap) {
         List<Ticker> tickersList = new ArrayList<>(2*chartCandlesMap.values().stream().collect(Collectors.summingInt(chartCandles->chartCandles.length)));
-        int maxTimePeriod = periodsNumCandles.stream().mapToInt(p -> p.getPeriodSeconds()).max().getAsInt();
+        long maxTimePeriod = periodsNumCandles.stream().mapToLong(p -> p.getPeriodSeconds()).max().getAsLong();
         chartCandlesMap.entrySet().stream().forEach(entry-> {
             CurrencyPairTimePeriod currencyPairTimePeriod = entry.getKey();
             ChartCandle[] chartCandles = entry.getValue();

@@ -13,10 +13,16 @@
 
 package pl.dmotyka.cryptonoseengine;
 
-import pl.dmotyka.exchangeutils.tickerprovider.Ticker;
-
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
+
+import pl.dmotyka.exchangeutils.tickerprovider.Ticker;
 
 /**
  * Created by dawid on 9/29/17.
@@ -25,11 +31,11 @@ public class CryptonoseEngineChangesChecker {
 
     private static final Logger logger = Logger.getLogger(CryptonoseEngineChangesChecker.class.getName());
 
-    private int timePeriods[];
+    private long timePeriods[];
     private Integer timeframeMultipler=1;
     private Map<String, List<Ticker>> tickersMap = new HashMap<>();
 
-    public CryptonoseEngineChangesChecker(int[] timePeriods) {
+    public CryptonoseEngineChangesChecker(long[] timePeriods) {
         this.timePeriods = timePeriods;
     }
 
