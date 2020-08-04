@@ -105,6 +105,7 @@ public class CryptonoseGenericEngine {
     };
 
     public void start() {
+        engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.CONNECTING, "Connecting..."));
         if (fetchPairsData())
             startTickerEngine();
     }
