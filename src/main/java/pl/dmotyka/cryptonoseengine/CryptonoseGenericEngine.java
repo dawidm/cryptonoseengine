@@ -1,7 +1,7 @@
 /*
  * Cryptonose2
  *
- * Copyright © 2019 Dawid Motyka
+ * Copyright © 2019-2020 Dawid Motyka
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
  *
@@ -105,7 +105,7 @@ public class CryptonoseGenericEngine {
     };
 
     public void start() {
-        engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.CONNECTING, "Connecting..."));
+        engineMessage(new EngineMessage(EngineMessage.Type.CONNECTING, "Connecting..."));
         if (fetchPairsData())
             startTickerEngine();
     }
@@ -174,16 +174,16 @@ public class CryptonoseGenericEngine {
         synchronized (refreshPairDataLock) {
             stoppedAtomicBoolean.set(false);
             if (pairSelectionCriteria!=null) {
-                engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, "Getting currency pairs..."));
+                engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Getting currency pairs..."));
                 RepeatTillSuccess.planTask(this::getPairs, (e) -> logger.log(Level.WARNING, "when getting currency pairs", e), GET_DATA_RETRY_INTERVAL);
                 if(pairs.length>0)
-                    engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, "Got currency pairs"));
+                    engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Got currency pairs"));
                 else {
-                    engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.NO_PAIRS, "Got 0 currency pairs"));
+                    engineMessage(new EngineMessage(EngineMessage.Type.NO_PAIRS, "Got 0 currency pairs"));
                     return false;
                 }
             }
-            engineMessageReceiver.message(
+            engineMessage(
                     new EngineMessage(
                             EngineMessage.Type.INFO,
                             String.format("Selected %d pairs: %s",
@@ -196,7 +196,7 @@ public class CryptonoseGenericEngine {
             );
             if (stoppedAtomicBoolean.get())
                 return false;
-            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, "Getting chart data..."));
+            engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Getting chart data..."));
             chartDataProvider = new ChartDataProvider(exchangeSpecs, pairs, periodsNumCandles.toArray(new PeriodNumCandles[periodsNumCandles.size()]));
             chartDataProvider.enableCandlesGenerator();
             for (ChartDataReceiver currentChartDataSubscriber : chartDataSubscribers) {
@@ -205,20 +205,20 @@ public class CryptonoseGenericEngine {
             relativeChangesChecker = new RelativeChangesChecker(chartDataProvider, relativeChangeNumCandles);
         }
         RepeatTillSuccess.planTask(() -> chartDataProvider.refreshData(), (e) -> {
-            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, "Error getting chart data"));
+            engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Error getting chart data"));
             logger.log(Level.WARNING, "when getting chart data", e);
         }, GET_DATA_RETRY_INTERVAL);
         if (stoppedAtomicBoolean.get())
             return false;
-        engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, "Successfully fetched chart data"));
+        engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Successfully fetched chart data"));
         if(initEngineWithLowerPeriodChartData) {
             PeriodNumCandles additionalPeriodNumCandles = checkGenTickersFromChartData();
             if(additionalPeriodNumCandles!=null) {
-                engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, "Getting additional chart data..."));
+                engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Getting additional chart data..."));
                 chartDataProviderInitEngine = new ChartDataProvider(exchangeSpecs, pairs, new PeriodNumCandles[]{additionalPeriodNumCandles});
                 chartDataProviderInitEngine.subscribeChartCandles(chartCandlesMap -> handleAdditionalChartData(chartCandlesMap));
                 RepeatTillSuccess.planTask(() -> chartDataProviderInitEngine.refreshData(), (e) -> {
-                    engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, "Error getting additional chart data"));
+                    engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Error getting additional chart data"));
                     logger.log(Level.WARNING, "when getting chart data", e);
                 }, GET_DATA_RETRY_INTERVAL);
             } else {
@@ -227,7 +227,7 @@ public class CryptonoseGenericEngine {
             }
             if (stoppedAtomicBoolean.get())
                 return false;
-            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, "Successfully fetched additional chart data"));
+            engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Successfully fetched additional chart data"));
         }
         return true;
     }
@@ -236,7 +236,7 @@ public class CryptonoseGenericEngine {
         synchronized (startTickerEngineLock) {
             if(stoppedAtomicBoolean.get())
                 return;
-            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.INFO, "Starting ticker provider..."));
+            engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Starting ticker provider..."));
             tickerProvider = TickerProvider.forExchange(exchangeSpecs, new TickerReceiver() {
                 @Override
                 public void receiveTicker(Ticker ticker) {
@@ -253,13 +253,13 @@ public class CryptonoseGenericEngine {
                 tickerProvider.connect(tickerProviderConnectionState -> {
                     switch (tickerProviderConnectionState) {
                         case CONNECTED:
-                            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.CONNECTED,"Connected"));
+                            engineMessage(new EngineMessage(EngineMessage.Type.CONNECTED,"Connected"));
                             break;
                         case DISCONNECTED:
-                            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.DISCONNECTED,"Disconnected"));
+                            engineMessage(new EngineMessage(EngineMessage.Type.DISCONNECTED,"Disconnected"));
                             break;
                         case RECONNECTING:
-                            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.RECONNECTING,"Reconnecting..."));
+                            engineMessage(new EngineMessage(EngineMessage.Type.RECONNECTING,"Reconnecting..."));
                             break;
                     }
                 });
@@ -367,6 +367,11 @@ public class CryptonoseGenericEngine {
 
     public void setEngineMessageReceiver(EngineMessageReceiver engineMessageReceiver) {
         this.engineMessageReceiver=engineMessageReceiver;
+    }
+
+    public void engineMessage(EngineMessage msg) {
+        if (engineMessageReceiver != null)
+            engineMessageReceiver.message(msg);
     }
 
     public void setEngineUpdateHeartbeatReceiver(EngineTransactionHeartbeatReceiver engineUpdateHeartbeatReceiver) {
