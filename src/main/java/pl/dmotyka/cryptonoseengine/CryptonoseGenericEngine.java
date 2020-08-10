@@ -143,6 +143,10 @@ public class CryptonoseGenericEngine {
         else return null;
     }
 
+    public synchronized ChartCandle[] getCandleData(CurrencyPairTimePeriod currencyPairTimePeriod) {
+        return chartDataProvider.getCandleData(currencyPairTimePeriod);
+    }
+
     public PriceChanges[] requestAllPairsChanges() {
         ArrayList<PriceChanges> changesArrayList = new ArrayList(pairs.length*periodsNumCandles.size());
         for(String pair : pairs) {
