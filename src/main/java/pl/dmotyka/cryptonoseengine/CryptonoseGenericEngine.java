@@ -16,6 +16,7 @@ package pl.dmotyka.cryptonoseengine;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -72,6 +73,8 @@ public class CryptonoseGenericEngine {
     private final Object startTickerEngineLock = new Object();
     private final Set<ChartDataReceiver> chartDataSubscribers=new HashSet<>();
     private final int relativeChangeNumCandles;
+    private int checkChangesDelayMs = 0;
+    private final Set<String> changesCheckingTempDisableSet = Collections.synchronizedSet(new HashSet<>());
 
     private CryptonoseGenericEngine(ExchangeSpecs exchangeSpecs,
                                     EngineChangesReceiver engineChangesReceiver,
@@ -105,6 +108,7 @@ public class CryptonoseGenericEngine {
     };
 
     public void start() {
+        scheduledExecutorService= Executors.newScheduledThreadPool(10);
         engineMessage(new EngineMessage(EngineMessage.Type.CONNECTING, "Connecting..."));
         if (fetchPairsData())
             startTickerEngine();
@@ -118,8 +122,6 @@ public class CryptonoseGenericEngine {
     }
 
     public void autoRefreshPairData(int intervalMinutes) {
-        if(scheduledExecutorService==null || scheduledExecutorService.isShutdown())
-            scheduledExecutorService= Executors.newScheduledThreadPool(1);
         scheduledExecutorService.scheduleWithFixedDelay(()->refresh(),intervalMinutes,intervalMinutes, TimeUnit.MINUTES);
     }
 
@@ -345,13 +347,18 @@ public class CryptonoseGenericEngine {
         chartDataProvider.insertTicker(ticker);
         if (engineUpdateHeartbeatReceiver != null)
             engineUpdateHeartbeatReceiver.receiveTransactionHeartbeat();
-        PriceChanges[] priceChanges = cryptonoseEngineChangesChecker.checkChanges(ticker);
-        if(relativeChangesChecker!=null)
-            relativeChangesChecker.setRelativeChanges(priceChanges);
-        engineChangesReceiver.receiveChanges(Arrays.asList(priceChanges));
+        cryptonoseEngineChangesChecker.insertTicker(ticker);
+        if (checkChangesDelayMs > 0 && !changesCheckingTempDisableSet.contains(ticker.getPair())) {
+            changesCheckingTempDisableSet.add(ticker.getPair());
+            scheduledExecutorService.schedule(() -> {
+                changesCheckingTempDisableSet.remove(ticker.getPair());
+                checkChangesForPair(ticker.getPair());
+            }, checkChangesDelayMs, TimeUnit.MILLISECONDS);
+        } else
+            checkChangesForPair(ticker.getPair());
     }
 
-    //Checking changes after inserting all tickers. This is for checking changes after big buys/sells that get divided to multiple exchange transactions.
+    //Checking changes after inserting all tickers. This is for checking changes after big buys/sells that get split to multiple exchange transactions.
     private synchronized void handleTickers(List<Ticker> tickers) {
         logger.finest(String.format("received %d tickers",tickers.size()));
         for(Ticker ticker : tickers)
@@ -359,7 +366,18 @@ public class CryptonoseGenericEngine {
         if (engineUpdateHeartbeatReceiver != null)
             engineUpdateHeartbeatReceiver.receiveTransactionHeartbeat();
         tickers.stream().forEach(ticker -> cryptonoseEngineChangesChecker.insertTicker(ticker));
-        PriceChanges[] priceChanges = cryptonoseEngineChangesChecker.checkChanges(tickers.get(0).getPair());
+        if (checkChangesDelayMs > 0 && !changesCheckingTempDisableSet.contains(tickers.get(0).getPair())) {
+            changesCheckingTempDisableSet.add(tickers.get(0).getPair());
+            scheduledExecutorService.schedule(() -> {
+                changesCheckingTempDisableSet.remove(tickers.get(0).getPair());
+                checkChangesForPair(tickers.get(0).getPair());
+            }, checkChangesDelayMs, TimeUnit.MILLISECONDS);
+        } else
+            checkChangesForPair(tickers.get(0).getPair());
+    }
+
+    private void checkChangesForPair(String pair) {
+        PriceChanges[] priceChanges = cryptonoseEngineChangesChecker.checkChanges(pair);
         if(relativeChangesChecker!=null)
             relativeChangesChecker.setRelativeChanges(priceChanges);
         engineChangesReceiver.receiveChanges(Arrays.asList(priceChanges));
@@ -382,4 +400,7 @@ public class CryptonoseGenericEngine {
         this.engineUpdateHeartbeatReceiver = engineUpdateHeartbeatReceiver;
     }
 
+    public void setCheckChangesDelayMs(int checkChangesDelayMs) {
+        this.checkChangesDelayMs = checkChangesDelayMs;
+    }
 }
