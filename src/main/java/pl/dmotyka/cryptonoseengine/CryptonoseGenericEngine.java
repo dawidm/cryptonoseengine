@@ -89,6 +89,7 @@ public class CryptonoseGenericEngine {
         cryptonoseEngineChangesChecker = new CryptonoseEngineChangesChecker(timePeriods);
         this.pairSelectionCriteria=pairSelectionCriteria;
         this.pairs=pairs;
+        scheduledExecutorService= Executors.newScheduledThreadPool(10);
     }
 
     public static CryptonoseGenericEngine withProvidedCurrencyPairs(ExchangeSpecs exchangeSpecs, EngineChangesReceiver engineChangesReceiver, long[] timePeriods, int relativeChangeNumCandles, String[] paris) {
@@ -108,7 +109,8 @@ public class CryptonoseGenericEngine {
     };
 
     public void start() {
-        scheduledExecutorService= Executors.newScheduledThreadPool(10);
+        if (scheduledExecutorService == null && scheduledExecutorService.isShutdown())
+            scheduledExecutorService= Executors.newScheduledThreadPool(10);
         engineMessage(new EngineMessage(EngineMessage.Type.CONNECTING, "Connecting..."));
         if (fetchPairsData())
             startTickerEngine();
