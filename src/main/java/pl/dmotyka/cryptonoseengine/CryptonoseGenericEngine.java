@@ -60,7 +60,8 @@ public class CryptonoseGenericEngine {
     private final List<PeriodNumCandles> periodsNumCandles = new ArrayList<>(10);
     private final PairSelectionCriteria[] pairSelectionCriteria;
 
-    private String[] pairs;
+    private final String[] pairsManual;
+    private String[] pairsAll;
     private boolean initEngineWithLowerPeriodChartData=false;
     private TickerProvider tickerProvider;
     private ChartDataProvider chartDataProvider;
@@ -88,7 +89,7 @@ public class CryptonoseGenericEngine {
         this.engineChangesReceiver=engineChangesReceiver;
         cryptonoseEngineChangesChecker = new CryptonoseEngineChangesChecker(timePeriods);
         this.pairSelectionCriteria=pairSelectionCriteria;
-        this.pairs=pairs;
+        this.pairsManual=pairs;
         scheduledExecutorService= Executors.newScheduledThreadPool(10);
     }
 
@@ -119,6 +120,7 @@ public class CryptonoseGenericEngine {
     public void stop() {
         stopFetchPairsData();
         stopTickerEngine();
+        pairsAll = null;
         if(scheduledExecutorService!=null)
             scheduledExecutorService.shutdown();
     }
@@ -152,8 +154,8 @@ public class CryptonoseGenericEngine {
     }
 
     public PriceChanges[] requestAllPairsChanges() {
-        ArrayList<PriceChanges> changesArrayList = new ArrayList(pairs.length*periodsNumCandles.size());
-        for(String pair : pairs) {
+        ArrayList<PriceChanges> changesArrayList = new ArrayList(pairsAll.length*periodsNumCandles.size());
+        for(String pair : pairsAll) {
             PriceChanges[] priceChanges = cryptonoseEngineChangesChecker.checkChanges(pair);
             if(priceChanges==null)
                 continue;
@@ -184,7 +186,7 @@ public class CryptonoseGenericEngine {
             if (pairSelectionCriteria!=null) {
                 engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Getting currency pairs..."));
                 RepeatTillSuccess.planTask(this::getPairs, (e) -> logger.log(Level.WARNING, "when getting currency pairs", e), GET_DATA_RETRY_INTERVAL);
-                if(pairs.length>0)
+                if(pairsAll.length>0)
                     engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Got currency pairs"));
                 else {
                     engineMessage(new EngineMessage(EngineMessage.Type.NO_PAIRS, "Got 0 currency pairs"));
@@ -195,8 +197,8 @@ public class CryptonoseGenericEngine {
                     new EngineMessage(
                             EngineMessage.Type.INFO,
                             String.format("Selected %d pairs: %s",
-                                    pairs.length,
-                                    Arrays.stream(pairs).
+                                    pairsAll.length,
+                                    Arrays.stream(pairsAll).
                                             map(pair-> PairSymbolConverter.toFormattedString(exchangeSpecs,pair)).
                                             collect(Collectors.joining(", "))
                             )
@@ -205,7 +207,7 @@ public class CryptonoseGenericEngine {
             if (stoppedAtomicBoolean.get())
                 return false;
             engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Getting chart data..."));
-            chartDataProvider = new ChartDataProvider(exchangeSpecs, pairs, periodsNumCandles.toArray(new PeriodNumCandles[periodsNumCandles.size()]));
+            chartDataProvider = new ChartDataProvider(exchangeSpecs, pairsAll, periodsNumCandles.toArray(new PeriodNumCandles[periodsNumCandles.size()]));
             chartDataProvider.enableCandlesGenerator();
             for (ChartDataReceiver currentChartDataSubscriber : chartDataSubscribers) {
                 chartDataProvider.subscribeChartCandles(currentChartDataSubscriber);
@@ -223,7 +225,7 @@ public class CryptonoseGenericEngine {
             PeriodNumCandles additionalPeriodNumCandles = checkGenTickersFromChartData();
             if(additionalPeriodNumCandles!=null) {
                 engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Getting additional chart data..."));
-                chartDataProviderInitEngine = new ChartDataProvider(exchangeSpecs, pairs, new PeriodNumCandles[]{additionalPeriodNumCandles});
+                chartDataProviderInitEngine = new ChartDataProvider(exchangeSpecs, pairsAll, new PeriodNumCandles[]{additionalPeriodNumCandles});
                 chartDataProviderInitEngine.subscribeChartCandles(chartCandlesMap -> handleAdditionalChartData(chartCandlesMap));
                 RepeatTillSuccess.planTask(() -> chartDataProviderInitEngine.refreshData(), (e) -> {
                     engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Error getting additional chart data"));
@@ -256,7 +258,7 @@ public class CryptonoseGenericEngine {
                 public void error(Throwable error) {
                     handleError(error);
                 }
-            }, pairs);
+            }, pairsAll);
             RepeatTillSuccess.planTask(() -> {
                 tickerProvider.connect(tickerProviderConnectionState -> {
                     switch (tickerProviderConnectionState) {
@@ -300,11 +302,11 @@ public class CryptonoseGenericEngine {
 
     private void getPairs() throws IOException {
         Set<String> pairsArraySet = new HashSet<>();
-        if(pairs!=null)
-            pairsArraySet.addAll(Arrays.asList(pairs));
+        if(pairsManual!=null)
+            pairsArraySet.addAll(Arrays.asList(pairsManual));
         PairDataProvider pairDataProvider = exchangeSpecs.getPairDataProvider();
         pairsArraySet.addAll(Arrays.asList(pairDataProvider.getPairsApiSymbols(pairSelectionCriteria)));
-        pairs=pairsArraySet.toArray(new String[pairsArraySet.size()]);
+        pairsAll=pairsArraySet.toArray(new String[pairsArraySet.size()]);
     }
 
     //returns PeriodNumCandles if tickers can be generated, otherwise null
