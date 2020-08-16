@@ -154,6 +154,8 @@ public class CryptonoseGenericEngine {
     }
 
     public PriceChanges[] requestAllPairsChanges() {
+        if (pairsAll == null)
+            return new PriceChanges[] {};
         ArrayList<PriceChanges> changesArrayList = new ArrayList(pairsAll.length*periodsNumCandles.size());
         for(String pair : pairsAll) {
             PriceChanges[] priceChanges = cryptonoseEngineChangesChecker.checkChanges(pair);
