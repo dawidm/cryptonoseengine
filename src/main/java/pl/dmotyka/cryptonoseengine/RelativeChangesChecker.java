@@ -13,16 +13,16 @@
 
 package pl.dmotyka.cryptonoseengine;
 
-import pl.dmotyka.exchangeutils.chartdataprovider.ChartDataProvider;
-import pl.dmotyka.exchangeutils.chartdataprovider.CurrencyPairTimePeriod;
-import pl.dmotyka.exchangeutils.chartinfo.ChartCandle;
-import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
-
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.OptionalDouble;
 import java.util.logging.Logger;
+
+import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
+import pl.dmotyka.exchangeutils.chartdataprovider.ChartDataProvider;
+import pl.dmotyka.exchangeutils.chartdataprovider.CurrencyPairTimePeriod;
+import pl.dmotyka.exchangeutils.chartinfo.ChartCandle;
 
 /**
  * Created by dawid on 7/25/17.
@@ -78,7 +78,8 @@ public class RelativeChangesChecker {
         RelativeChangesInfo relativeChangesInfo=relativeChangesInfoMap.get(new CurrencyPairTimePeriod(priceChanges.getCurrencyPair(),(int)priceChanges.getTimePeriodSeconds()));
         if(relativeChangesInfo!=null && !relativeChangesInfo.isEmpty()) {
             priceChanges.setRelativePriceChange(priceChanges.getChange() / relativeChangesInfo.getHighLowDiff());
-            priceChanges.setRelativeLastPriceChange(priceChanges.getLastChange() / relativeChangesInfo.highLowDiff);
+            priceChanges.setRelativeLastPriceChange(priceChanges.getLastChange() / relativeChangesInfo.getHighLowDiff());
+            priceChanges.setRelativeLastDropPriceChange(priceChanges.getLastDropChange() / relativeChangesInfo.getHighLowDiff());
             priceChanges.setHighLowDiffRelativeStdDev(relativeChangesInfo.getHighLowDiffRelativeStdDeviation());
         }
     }

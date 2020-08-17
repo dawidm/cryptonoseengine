@@ -17,8 +17,8 @@ package pl.dmotyka.cryptonoseengine;
  * Created by dawid on 4/9/18.
  */
 public class RelativeChangesInfo {
-    Double highLowDiff;
-    Double highLowDiffRelativeStdDeviation;
+    private Double highLowDiff;
+    private Double highLowDiffRelativeStdDeviation;
     public RelativeChangesInfo(Double highLowDiff, Double highLowDiffRelativeStdDeviation) {
         this.highLowDiff = highLowDiff;
         this.highLowDiffRelativeStdDeviation = highLowDiffRelativeStdDeviation;
