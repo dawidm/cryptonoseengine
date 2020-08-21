@@ -74,17 +74,35 @@ public class CryptonoseEngineChangesChecker {
                 long minValidTimestampForPeriod = currentTimeSnapshot - currentTimePeriod * timeframeMultipler;
                 Ticker minTicker = currentPairTickersList.stream().
                         filter(t -> t.getTimestampSeconds() > minValidTimestampForPeriod).
-                                                                 min(Comparator.comparingDouble(Ticker::getValue)).get();
+                        min(Comparator.comparingDouble(Ticker::getValue)).orElse(null);
+                if (minTicker == null) //valid tickers list is empty
+                    continue;
                 Ticker maxTicker = currentPairTickersList.stream().
                         filter(t -> t.getTimestampSeconds() > minValidTimestampForPeriod).
-                                                                 max(Comparator.comparingDouble(Ticker::getValue)).get();
+                        max(Comparator.comparingDouble(Ticker::getValue)).orElse(null);
+                Ticker maxAfterMinTicker;
+                if (maxTicker.getTimestampSeconds() >= minTicker.getTimestampSeconds())
+                    maxAfterMinTicker = maxTicker;
+                else
+                    maxAfterMinTicker = currentPairTickersList.stream().
+                            filter(t -> t.getTimestampSeconds() > minTicker.getTimestampSeconds()).
+                            max(Comparator.comparingDouble(Ticker::getValue)).orElse(minTicker);
+                Ticker minAfterMaxTicker;
+                if (minTicker.getTimestampSeconds() >= maxTicker.getTimestampSeconds())
+                    minAfterMaxTicker = minTicker;
+                else
+                    minAfterMaxTicker = currentPairTickersList.stream().
+                            filter(t -> t.getTimestampSeconds() > maxTicker.getTimestampSeconds()).
+                            min(Comparator.comparingDouble(Ticker::getValue)).orElse(maxTicker);
                 PriceChanges priceChanges = new PriceChanges(pair,
                         currentTimePeriod,
                         lastTicker.getValue(),
                         minTicker.getValue(),
                         minTicker.getTimestampSeconds(),
                         maxTicker.getValue(),
-                        maxTicker.getTimestampSeconds());
+                        maxTicker.getTimestampSeconds(),
+                        maxAfterMinTicker.getValue(),
+                        minAfterMaxTicker.getValue());
                 priceChangesList.add(priceChanges);
             }
             return priceChangesList.toArray(new PriceChanges[priceChangesList.size()]);

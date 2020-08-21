@@ -24,18 +24,15 @@ public class PriceChanges {
     private final long minPriceTimestamp;
     private final double maxPrice;
     private final long maxPriceTimestamp;
+    private final double maxAfterMinPrice;
+    private final double minAfterMaxPrice;
     private Double relativePriceChange;
     private Double relativeLastPriceChange;
-    private Double relativeLastDropPriceChange;
+    private Double relativeDropPriceChange;
+    private Double relativeRisePriceChange;
     private Double highLowDiffRelativeStdDev;
 
-    public PriceChanges(String currencyPair,
-                        long timePeriodSeconds,
-                        double lastPrice,
-                        double minPrice,
-                        long minPriceTimestamp,
-                        double maxPrice,
-                        long maxPriceTimestamp) {
+    public PriceChanges(String currencyPair, long timePeriodSeconds, double lastPrice, double minPrice, long minPriceTimestamp, double maxPrice, long maxPriceTimestamp, double maxAfterMinPrice, double minAfterMaxPrice) {
         this.currencyPair = currencyPair;
         this.timePeriodSeconds = timePeriodSeconds;
         this.lastPrice = lastPrice;
@@ -43,7 +40,8 @@ public class PriceChanges {
         this.minPriceTimestamp = minPriceTimestamp;
         this.maxPrice = maxPrice;
         this.maxPriceTimestamp = maxPriceTimestamp;
-        this.relativePriceChange=null;
+        this.maxAfterMinPrice = maxAfterMinPrice;
+        this.minAfterMaxPrice = minAfterMaxPrice;
     }
 
     public double getPercentChange() {
@@ -68,12 +66,20 @@ public class PriceChanges {
         }
     }
 
-    public double getLastDropChange() {
-        return lastPrice-maxPrice;
+    public double getDropChange() {
+        return minAfterMaxPrice-maxPrice;
     }
 
-    public double getLastDropPercentChange() {
-        return 100*(lastPrice-maxPrice)/maxPrice;
+    public double getLastPercentChange() {
+        return 100*(minAfterMaxPrice-maxPrice)/maxPrice;
+    }
+
+    public double getRiseChange() {
+        return minPrice-maxAfterMinPrice;
+    }
+
+    public double getRisePercentChange() {
+        return 100*(minPrice-maxAfterMinPrice)/maxAfterMinPrice;
     }
 
     public double getLastChange() {
@@ -112,6 +118,14 @@ public class PriceChanges {
         return maxPrice;
     }
 
+    public double getMaxAfterMinPrice() {
+        return maxAfterMinPrice;
+    }
+
+    public double getMinAfterMaxPrice() {
+        return minAfterMaxPrice;
+    }
+
     public Double getRelativePriceChange() {
         return relativePriceChange;
     }
@@ -120,8 +134,12 @@ public class PriceChanges {
         return relativeLastPriceChange;
     }
 
-    public Double getRelativeLastDropPriceChange() {
-        return relativeLastDropPriceChange;
+    public Double getRelativeDropPriceChange() {
+        return relativeDropPriceChange;
+    }
+
+    public Double getRelativeRisePriceChange() {
+        return relativeRisePriceChange;
     }
 
     public Double getHighLowDiffRelativeStdDev() {
@@ -136,8 +154,12 @@ public class PriceChanges {
         this.relativeLastPriceChange = relativeLastPriceChange;
     }
 
-    public void setRelativeLastDropPriceChange(Double relativeLastDropPriceChange) {
-        this.relativeLastDropPriceChange = relativeLastDropPriceChange;
+    public void setRelativeDropPriceChange(Double relativeDropPriceChange) {
+        this.relativeDropPriceChange = relativeDropPriceChange;
+    }
+
+    public void setRelativeRisePriceChange(Double relativeRisePriceChange) {
+        this.relativeRisePriceChange = relativeRisePriceChange;
     }
 
     public void setHighLowDiffRelativeStdDev(Double highLowDiffRelativeStdDev) {

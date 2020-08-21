@@ -79,7 +79,8 @@ public class RelativeChangesChecker {
         if(relativeChangesInfo!=null && !relativeChangesInfo.isEmpty()) {
             priceChanges.setRelativePriceChange(priceChanges.getChange() / relativeChangesInfo.getHighLowDiff());
             priceChanges.setRelativeLastPriceChange(priceChanges.getLastChange() / relativeChangesInfo.getHighLowDiff());
-            priceChanges.setRelativeLastDropPriceChange(priceChanges.getLastDropChange() / relativeChangesInfo.getHighLowDiff());
+            priceChanges.setRelativeDropPriceChange(priceChanges.getDropChange() / relativeChangesInfo.getHighLowDiff());
+            priceChanges.setRelativeRisePriceChange(priceChanges.getRiseChange() / relativeChangesInfo.getHighLowDiff());
             priceChanges.setHighLowDiffRelativeStdDev(relativeChangesInfo.getHighLowDiffRelativeStdDeviation());
         }
     }
