@@ -106,6 +106,14 @@ public class PriceChanges {
         return Math.abs(minPriceTimestamp-maxPriceTimestamp);
     }
 
+    public long getDropChangeTimeSeconds() {
+        return minAfterMaxTimestamp - minPriceTimestamp;
+    }
+
+    public long getRiseChangeTimeSeconds() {
+        return maxAfterMinTimestamp - minPriceTimestamp;
+    }
+
     public long getPriceChangeAgeSeconds() {
         return System.currentTimeMillis()/1000-Math.max(minPriceTimestamp,maxPriceTimestamp);
     }
