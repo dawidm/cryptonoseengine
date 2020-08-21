@@ -70,7 +70,7 @@ public class PriceChanges {
         return minAfterMaxPrice-maxPrice;
     }
 
-    public double getLastPercentChange() {
+    public double getDropPercentChange() {
         return 100*(minAfterMaxPrice-maxPrice)/maxPrice;
     }
 
@@ -88,6 +88,14 @@ public class PriceChanges {
         if(riseChange>dropChange)
             return riseChange;
         return -dropChange;
+    }
+
+    public double getLastPercentChange() {
+        double riseChange=lastPrice-minPrice;
+        double dropChange=maxPrice-lastPrice;
+        if(riseChange>dropChange)
+            return 100*riseChange/minPrice;
+        return -100*dropChange/lastPrice;
     }
 
     public long getChangeTimeSeconds() {
