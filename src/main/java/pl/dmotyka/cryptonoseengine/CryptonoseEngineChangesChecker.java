@@ -102,7 +102,9 @@ public class CryptonoseEngineChangesChecker {
                         maxTicker.getValue(),
                         maxTicker.getTimestampSeconds(),
                         maxAfterMinTicker.getValue(),
-                        minAfterMaxTicker.getValue());
+                        maxAfterMinTicker.getTimestampSeconds(),
+                        minAfterMaxTicker.getValue(),
+                        maxAfterMinTicker.getTimestampSeconds());
                 priceChangesList.add(priceChanges);
             }
             return priceChangesList.toArray(new PriceChanges[priceChangesList.size()]);

@@ -25,14 +25,16 @@ public class PriceChanges {
     private final double maxPrice;
     private final long maxPriceTimestamp;
     private final double maxAfterMinPrice;
+    private final long maxAfterMinTimestamp;
     private final double minAfterMaxPrice;
+    private final long minAfterMaxTimestamp;
     private Double relativePriceChange;
     private Double relativeLastPriceChange;
     private Double relativeDropPriceChange;
     private Double relativeRisePriceChange;
     private Double highLowDiffRelativeStdDev;
 
-    public PriceChanges(String currencyPair, long timePeriodSeconds, double lastPrice, double minPrice, long minPriceTimestamp, double maxPrice, long maxPriceTimestamp, double maxAfterMinPrice, double minAfterMaxPrice) {
+    public PriceChanges(String currencyPair, long timePeriodSeconds, double lastPrice, double minPrice, long minPriceTimestamp, double maxPrice, long maxPriceTimestamp, double maxAfterMinPrice, long maxAfterMinTimestamp, double minAfterMaxPrice, long minAfterMaxTimestamp) {
         this.currencyPair = currencyPair;
         this.timePeriodSeconds = timePeriodSeconds;
         this.lastPrice = lastPrice;
@@ -41,7 +43,9 @@ public class PriceChanges {
         this.maxPrice = maxPrice;
         this.maxPriceTimestamp = maxPriceTimestamp;
         this.maxAfterMinPrice = maxAfterMinPrice;
+        this.maxAfterMinTimestamp = maxAfterMinTimestamp;
         this.minAfterMaxPrice = minAfterMaxPrice;
+        this.minAfterMaxTimestamp = minAfterMaxTimestamp;
     }
 
     public double getPercentChange() {
