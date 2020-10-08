@@ -1,7 +1,7 @@
 /*
  * Cryptonose2
  *
- * Copyright © 2019 Dawid Motyka
+ * Copyright © 2019-2020 Dawid Motyka
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
  *
@@ -33,7 +33,8 @@ public class RelativeChangesChecker {
 
     public class NoDataException extends Exception {}
 
-    public static final double MIN_CANDLE_HIGH_LOW = 1e-10;
+    // chart candle is used for calculation only if its price change if higher than last price multiplied by this value
+    public static final double MIN_CANDLE_CHANGE = 0.0001;
 
     private Map<CurrencyPairTimePeriod,RelativeChangesInfo> relativeChangesInfoMap=new HashMap<>();
 
@@ -46,8 +47,9 @@ public class RelativeChangesChecker {
                double[] highLowDiffArray = Arrays.stream(chartCandles).
                        map(chartCandle -> Math.abs(chartCandle.getHigh()-chartCandle.getLow())).
                        mapToDouble(val -> val).toArray();
+               double lastClosePrice = chartCandles[chartCandles.length-1].getClose();
                OptionalDouble optionalHighLowDiff = Arrays.stream(highLowDiffArray).
-                       filter(value -> value>MIN_CANDLE_HIGH_LOW).
+                       filter(value -> value > lastClosePrice * MIN_CANDLE_CHANGE).
                        average();
                if(optionalHighLowDiff.isPresent()) {
                    double highLowDiff = optionalHighLowDiff.getAsDouble();
