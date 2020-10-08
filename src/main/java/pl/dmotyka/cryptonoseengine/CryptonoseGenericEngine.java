@@ -252,10 +252,10 @@ public class CryptonoseGenericEngine {
             tickerProvider = TickerProvider.forExchange(exchangeSpecs, new TickerReceiver() {
                 @Override
                 public void receiveTicker(Ticker ticker) {
-                    handleTicker(ticker);
+                    handleTicker(ticker, false);
                 }
                 @Override
-                public void receiveTickers(List<Ticker> tickers) { handleTickers(tickers); }
+                public void receiveTickers(List<Ticker> tickers) { handleTickers(tickers, false); }
                 @Override
                 public void error(Throwable error) {
                     handleError(error);
@@ -331,6 +331,9 @@ public class CryptonoseGenericEngine {
         handleAdditionalChartData(chartDataProvider.getAllCandleDataForPeriod(minTimePeriod));
     }
 
+    // Uses chart candles of lower periods than engine periods,
+    // converts close prices from lower periods to "tickers" and use them to calculate price changes.
+    // Should be used before starting ticker engine.
     private void handleAdditionalChartData(Map<CurrencyPairTimePeriod,ChartCandle[]> chartCandlesMap) {
         List<Ticker> tickersList = new ArrayList<>(2*chartCandlesMap.values().stream().collect(Collectors.summingInt(chartCandles->chartCandles.length)));
         long maxTimePeriod = periodsNumCandles.stream().mapToLong(p -> p.getPeriodSeconds()).max().getAsLong();
@@ -345,14 +348,18 @@ public class CryptonoseGenericEngine {
                 }
             });
         });
-        handleTickers(tickersList);
+        handleTickers(tickersList, true);
     }
 
-    private synchronized void handleTicker(Ticker ticker) {
+    // isInitTicker - set true for tickers created at initialization (not send by ticker provider),
+    //  engine update heartbeat wouldn't be sent and tickers wouldn't be sent to chart data provider
+    private synchronized void handleTicker(Ticker ticker, boolean isInitTicker) {
         logger.finest(String.format("received ticker %s",ticker.getPair()));
-        chartDataProvider.insertTicker(ticker);
-        if (engineUpdateHeartbeatReceiver != null)
-            engineUpdateHeartbeatReceiver.receiveTransactionHeartbeat();
+        if (!isInitTicker) {
+            chartDataProvider.insertTicker(ticker);
+            if (engineUpdateHeartbeatReceiver != null)
+                engineUpdateHeartbeatReceiver.receiveTransactionHeartbeat();
+        }
         cryptonoseEngineChangesChecker.insertTicker(ticker);
         if (checkChangesDelayMs > 0 && !changesCheckingTempDisableSet.contains(ticker.getPair())) {
             changesCheckingTempDisableSet.add(ticker.getPair());
@@ -364,13 +371,18 @@ public class CryptonoseGenericEngine {
             checkChangesForPair(ticker.getPair());
     }
 
-    //Checking changes after inserting all tickers. This is for checking changes after big buys/sells that get split to multiple exchange transactions.
-    private synchronized void handleTickers(List<Ticker> tickers) {
+    // Checking changes after inserting all tickers. This is for checking changes after big buys/sells that get split to multiple exchange transactions.
+    //
+    // areInitTickers - set true for tickers created at initialization (not send by ticker provider),
+    //  engine update heartbeat wouldn't be sent and tickers wouldn't be sent to chart data provider
+    private synchronized void handleTickers(List<Ticker> tickers, boolean areInitTickers) {
         logger.finest(String.format("received %d tickers",tickers.size()));
-        for(Ticker ticker : tickers)
-            chartDataProvider.insertTicker(ticker);
-        if (engineUpdateHeartbeatReceiver != null)
-            engineUpdateHeartbeatReceiver.receiveTransactionHeartbeat();
+        if (!areInitTickers) {
+            for (Ticker ticker : tickers)
+                chartDataProvider.insertTicker(ticker);
+            if (engineUpdateHeartbeatReceiver != null)
+                engineUpdateHeartbeatReceiver.receiveTransactionHeartbeat();
+        }
         tickers.stream().forEach(ticker -> cryptonoseEngineChangesChecker.insertTicker(ticker));
         if (checkChangesDelayMs > 0 && !changesCheckingTempDisableSet.contains(tickers.get(0).getPair())) {
             changesCheckingTempDisableSet.add(tickers.get(0).getPair());
