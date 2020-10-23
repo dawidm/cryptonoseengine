@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
@@ -57,7 +58,7 @@ public class CryptonoseGenericEngine {
     private final EngineChangesReceiver engineChangesReceiver;
     private EngineTransactionHeartbeatReceiver engineUpdateHeartbeatReceiver;
     private EngineMessageReceiver engineMessageReceiver;
-    private final List<PeriodNumCandles> periodsNumCandles = new ArrayList<>(10);
+    private final List<PeriodNumCandles> periodsNumCandles;
     private final PairSelectionCriteria[] pairSelectionCriteria;
 
     private final String[] pairsManual;
@@ -67,8 +68,8 @@ public class CryptonoseGenericEngine {
     private ChartDataProvider chartDataProvider;
     private ChartDataProvider chartDataProviderInitEngine;
     private RelativeChangesChecker relativeChangesChecker;
-    private CryptonoseEngineChangesChecker cryptonoseEngineChangesChecker;
-    private ScheduledExecutorService scheduledExecutorService;
+    private final CryptonoseEngineChangesChecker cryptonoseEngineChangesChecker;
+    private final ScheduledExecutorService scheduledExecutorService;
     private final AtomicBoolean stoppedAtomicBoolean=new AtomicBoolean(false);
     private final Object refreshPairDataLock = new Object();
     private final Object startTickerEngineLock = new Object();
@@ -76,6 +77,10 @@ public class CryptonoseGenericEngine {
     private final int relativeChangeNumCandles;
     private int checkChangesDelayMs = 0;
     private final Set<String> changesCheckingTempDisableSet = Collections.synchronizedSet(new HashSet<>());
+    private ScheduledFuture<?> refreshScheduledFuture;
+    private Integer refreshIntervalMinutes = null;
+    private final AtomicBoolean isRefreshing = new AtomicBoolean(false);
+    private boolean started = false;
 
     private CryptonoseGenericEngine(ExchangeSpecs exchangeSpecs,
                                     EngineChangesReceiver engineChangesReceiver,
@@ -83,8 +88,12 @@ public class CryptonoseGenericEngine {
                                     int relativeChangeNumCandles,
                                     PairSelectionCriteria[] pairSelectionCriteria,
                                     String[] pairs) {
+        if (timePeriods.length < 1)
+            throw new IllegalArgumentException("empty timePeriods");
+        if (pairSelectionCriteria.length < 1 && pairs.length < 1)
+            throw new IllegalArgumentException("empty pair selection criteria and pairs list");
         this.exchangeSpecs=exchangeSpecs;
-        Arrays.stream(timePeriods).forEach(timePeriod->periodsNumCandles.add(new PeriodNumCandles(timePeriod,relativeChangeNumCandles)));
+        periodsNumCandles = Arrays.stream(timePeriods).mapToObj(timePeriod -> new PeriodNumCandles(timePeriod, relativeChangeNumCandles)).collect(Collectors.toList());
         this.relativeChangeNumCandles=relativeChangeNumCandles;
         this.engineChangesReceiver=engineChangesReceiver;
         cryptonoseEngineChangesChecker = new CryptonoseEngineChangesChecker(timePeriods);
@@ -110,23 +119,31 @@ public class CryptonoseGenericEngine {
     };
 
     public void start() {
-        if (scheduledExecutorService == null && scheduledExecutorService.isShutdown())
-            scheduledExecutorService= Executors.newScheduledThreadPool(10);
+        if (started)
+            throw new IllegalStateException("Engine can be started once");
+        started = true;
         engineMessage(new EngineMessage(EngineMessage.Type.CONNECTING, "Connecting..."));
         if (fetchPairsData())
             startTickerEngine();
+        if (refreshScheduledFuture != null) {
+            refreshScheduledFuture.cancel(false);
+            refreshScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
+                engineMessage(new EngineMessage(EngineMessage.Type.AUTO_REFRESHING, "Auto refreshing paris data..."));
+                refresh();
+            },refreshIntervalMinutes,refreshIntervalMinutes, TimeUnit.MINUTES);
+        }
     }
 
     public void stop() {
+        if (refreshScheduledFuture != null)
+            refreshScheduledFuture.cancel(false);
         stopFetchPairsData();
         stopTickerEngine();
-        pairsAll = null;
-        if(scheduledExecutorService!=null)
-            scheduledExecutorService.shutdown();
     }
 
     public void autoRefreshPairData(int intervalMinutes) {
-        scheduledExecutorService.scheduleWithFixedDelay(()->refresh(),intervalMinutes,intervalMinutes, TimeUnit.MINUTES);
+        this.refreshIntervalMinutes = intervalMinutes;
+        refreshScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(this::refresh,intervalMinutes,intervalMinutes, TimeUnit.MINUTES);
     }
 
     //should be called before starting engine
@@ -149,7 +166,7 @@ public class CryptonoseGenericEngine {
         else return null;
     }
 
-    public synchronized ChartCandle[] getCandleData(CurrencyPairTimePeriod currencyPairTimePeriod) {
+    public ChartCandle[] getCandleData(CurrencyPairTimePeriod currencyPairTimePeriod) {
         return chartDataProvider.getCandleData(currencyPairTimePeriod);
     }
 
@@ -168,17 +185,20 @@ public class CryptonoseGenericEngine {
         return changesArrayList.toArray(new PriceChanges[changesArrayList.size()]);
     }
 
-    private void refresh() {
-        logger.info("Refreshing pairs data and reconnecting websocket...");
-        try {
-            logger.info("Canceling refresh pair data if active...");
-            stopFetchPairsData();
-            logger.fine("Refreshing pairs data...");
-            fetchPairsData();
-            stopTickerEngine();
-            startTickerEngine();
-        } catch (Exception e) {
-            logger.log(Level.SEVERE,"when restarting ticker provider",e);
+    public void refresh() {
+        if (!isRefreshing.get()) {
+            isRefreshing.set(true);
+            logger.info("Refreshing pairs data and reconnecting websocket...");
+            try {
+                logger.info("Canceling refresh pair data if active...");
+                stopFetchPairsData();
+                logger.fine("Refreshing pairs data...");
+                fetchPairsData();
+                stopTickerEngine();
+                startTickerEngine();
+            } catch (Exception e) {
+                logger.log(Level.SEVERE, "when restarting ticker provider", e);
+            }
         }
     }
 
@@ -215,33 +235,33 @@ public class CryptonoseGenericEngine {
                 chartDataProvider.subscribeChartCandles(currentChartDataSubscriber);
             }
             relativeChangesChecker = new RelativeChangesChecker(chartDataProvider, relativeChangeNumCandles);
-        }
-        RepeatTillSuccess.planTask(() -> chartDataProvider.refreshData(), (e) -> {
-            engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Error getting chart data"));
-            logger.log(Level.WARNING, "when getting chart data", e);
-        }, GET_DATA_RETRY_INTERVAL);
-        if (stoppedAtomicBoolean.get())
-            return false;
-        engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Successfully fetched chart data"));
-        if(initEngineWithLowerPeriodChartData) {
-            PeriodNumCandles additionalPeriodNumCandles = checkGenTickersFromChartData();
-            if(additionalPeriodNumCandles!=null) {
-                engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Getting additional chart data..."));
-                chartDataProviderInitEngine = new ChartDataProvider(exchangeSpecs, pairsAll, new PeriodNumCandles[]{additionalPeriodNumCandles});
-                chartDataProviderInitEngine.subscribeChartCandles(chartCandlesMap -> handleAdditionalChartData(chartCandlesMap));
-                RepeatTillSuccess.planTask(() -> chartDataProviderInitEngine.refreshData(), (e) -> {
-                    engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Error getting additional chart data"));
-                    logger.log(Level.WARNING, "when getting chart data", e);
-                }, GET_DATA_RETRY_INTERVAL);
-            } else {
-                logger.fine("using lowest period chart data as tickers");
-                useLowestPeriodCandlesAsTickers();
-            }
+            RepeatTillSuccess.planTask(() -> chartDataProvider.refreshData(), (e) -> {
+                engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Error getting chart data"));
+                logger.log(Level.WARNING, "when getting chart data", e);
+            }, GET_DATA_RETRY_INTERVAL);
             if (stoppedAtomicBoolean.get())
                 return false;
-            engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Successfully fetched additional chart data"));
+            engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Successfully fetched chart data"));
+            if(initEngineWithLowerPeriodChartData) {
+                PeriodNumCandles additionalPeriodNumCandles = checkGenTickersFromChartData();
+                if(additionalPeriodNumCandles!=null) {
+                    engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Getting additional chart data..."));
+                    chartDataProviderInitEngine = new ChartDataProvider(exchangeSpecs, pairsAll, new PeriodNumCandles[]{additionalPeriodNumCandles});
+                    chartDataProviderInitEngine.subscribeChartCandles(chartCandlesMap -> handleAdditionalChartData(chartCandlesMap));
+                    RepeatTillSuccess.planTask(() -> chartDataProviderInitEngine.refreshData(), (e) -> {
+                        engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Error getting additional chart data"));
+                        logger.log(Level.WARNING, "when getting chart data", e);
+                    }, GET_DATA_RETRY_INTERVAL);
+                } else {
+                    logger.fine("using lowest period chart data as tickers");
+                    useLowestPeriodCandlesAsTickers();
+                }
+                if (stoppedAtomicBoolean.get())
+                    return false;
+                engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Successfully fetched additional chart data"));
+            }
+            return true;
         }
-        return true;
     }
 
     private void startTickerEngine() {
@@ -265,10 +285,14 @@ public class CryptonoseGenericEngine {
                 tickerProvider.connect(tickerProviderConnectionState -> {
                     switch (tickerProviderConnectionState) {
                         case CONNECTED:
-                            engineMessage(new EngineMessage(EngineMessage.Type.CONNECTED,"Connected"));
+                            if (isRefreshing.get())
+                                isRefreshing.set(false);
+                            else
+                                engineMessage(new EngineMessage(EngineMessage.Type.CONNECTED,"Connected"));
                             break;
                         case DISCONNECTED:
-                            engineMessage(new EngineMessage(EngineMessage.Type.DISCONNECTED,"Disconnected"));
+                            if (!isRefreshing.get())
+                                engineMessage(new EngineMessage(EngineMessage.Type.DISCONNECTED,"Disconnected"));
                             break;
                         case RECONNECTING:
                             engineMessage(new EngineMessage(EngineMessage.Type.RECONNECTING,"Reconnecting..."));
@@ -313,8 +337,8 @@ public class CryptonoseGenericEngine {
 
     //returns PeriodNumCandles if tickers can be generated, otherwise null
     private PeriodNumCandles checkGenTickersFromChartData() {
-        long minPeriod = periodsNumCandles.stream().mapToLong(periodNumCandles -> periodNumCandles.getPeriodSeconds()).min().getAsLong();
-        long maxPeriod = periodsNumCandles.stream().mapToLong(periodNumCandles -> periodNumCandles.getPeriodSeconds()).max().getAsLong();
+        long minPeriod = periodsNumCandles.stream().mapToLong(PeriodNumCandles::getPeriodSeconds).min().getAsLong();
+        long maxPeriod = periodsNumCandles.stream().mapToLong(PeriodNumCandles::getPeriodSeconds).max().getAsLong();
         int minAvailableExchangePeriod = Arrays.stream(exchangeSpecs.getChartInfo().getAvailablePeriods()).
                 mapToInt(chartTimePeriod -> (int)chartTimePeriod.getPeriodLengthSeconds()).
                 min().getAsInt();
@@ -327,7 +351,7 @@ public class CryptonoseGenericEngine {
     }
 
     private void useLowestPeriodCandlesAsTickers() {
-        long minTimePeriod = periodsNumCandles.stream().mapToLong(p -> p.getPeriodSeconds()).min().getAsLong();
+        long minTimePeriod = periodsNumCandles.stream().mapToLong(PeriodNumCandles::getPeriodSeconds).min().getAsLong();
         handleAdditionalChartData(chartDataProvider.getAllCandleDataForPeriod(minTimePeriod));
     }
 
@@ -335,8 +359,8 @@ public class CryptonoseGenericEngine {
     // converts close prices from lower periods to "tickers" and use them to calculate price changes.
     // Should be used before starting ticker engine.
     private void handleAdditionalChartData(Map<CurrencyPairTimePeriod,ChartCandle[]> chartCandlesMap) {
-        List<Ticker> tickersList = new ArrayList<>(2*chartCandlesMap.values().stream().collect(Collectors.summingInt(chartCandles->chartCandles.length)));
-        long maxTimePeriod = periodsNumCandles.stream().mapToLong(p -> p.getPeriodSeconds()).max().getAsLong();
+        List<Ticker> tickersList = new ArrayList<>(2 * chartCandlesMap.values().stream().mapToInt(chartCandles -> chartCandles.length).sum());
+        long maxTimePeriod = periodsNumCandles.stream().mapToLong(PeriodNumCandles::getPeriodSeconds).max().getAsLong();
         chartCandlesMap.entrySet().stream().forEach(entry-> {
             CurrencyPairTimePeriod currencyPairTimePeriod = entry.getKey();
             ChartCandle[] chartCandles = entry.getValue();
@@ -353,7 +377,7 @@ public class CryptonoseGenericEngine {
 
     // isInitTicker - set true for tickers created at initialization (not send by ticker provider),
     //  engine update heartbeat wouldn't be sent and tickers wouldn't be sent to chart data provider
-    private synchronized void handleTicker(Ticker ticker, boolean isInitTicker) {
+    private void handleTicker(Ticker ticker, boolean isInitTicker) {
         logger.finest(String.format("received ticker %s",ticker.getPair()));
         if (!isInitTicker) {
             chartDataProvider.insertTicker(ticker);
@@ -375,7 +399,7 @@ public class CryptonoseGenericEngine {
     //
     // areInitTickers - set true for tickers created at initialization (not send by ticker provider),
     //  engine update heartbeat wouldn't be sent and tickers wouldn't be sent to chart data provider
-    private synchronized void handleTickers(List<Ticker> tickers, boolean areInitTickers) {
+    private void handleTickers(List<Ticker> tickers, boolean areInitTickers) {
         logger.finest(String.format("received %d tickers",tickers.size()));
         if (!areInitTickers) {
             for (Ticker ticker : tickers)
