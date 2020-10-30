@@ -320,14 +320,13 @@ public class CryptonoseGenericEngine {
                     tickerProvider.connect(tickerProviderConnectionState -> {
                         switch (tickerProviderConnectionState) {
                             case CONNECTED:
-                                if (isRefreshing.get())
+                                if (isRefreshing.get()) {
                                     isRefreshing.set(false);
-                                else
-                                    engineMessage(new EngineMessage(EngineMessage.Type.CONNECTED, "Connected"));
+                                }
+                                engineMessage(new EngineMessage(EngineMessage.Type.CONNECTED, "Connected"));
                                 break;
                             case DISCONNECTED:
-                                if (!isRefreshing.get())
-                                    engineMessage(new EngineMessage(EngineMessage.Type.DISCONNECTED, "Disconnected"));
+                                engineMessage(new EngineMessage(EngineMessage.Type.DISCONNECTED, "Disconnected"));
                                 break;
                             case RECONNECTING:
                                 engineMessage(new EngineMessage(EngineMessage.Type.RECONNECTING, "Reconnecting..."));
