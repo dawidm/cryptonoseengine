@@ -78,12 +78,18 @@ public class CryptonoseGenericEngine {
     private ScheduledFuture<?> refreshScheduledFuture;
     private final Set<String> changesCheckingTempDisableSet = Collections.synchronizedSet(new HashSet<>());
 
-    private final Object refreshPairDataLock = new Object();
+
+    private final Object fetchPairDataLock = new Object();
     private final Object startTickerEngineLock = new Object();
+    // is refreshing (reconnecting when connection was previously active)
     private final AtomicBoolean isRefreshing = new AtomicBoolean(false);
     private final AtomicBoolean isFetchingPairsData = new AtomicBoolean(false);
     private final AtomicBoolean isStartingTicker = new AtomicBoolean(false);
+    // to discriminate between ticker reconnecting on it's own and by a request
+    private final AtomicBoolean isWaitingForTickerConnection = new AtomicBoolean(false);
+    // stopped means than engine was wlready started, and then stop was requested
     private final AtomicBoolean stopped = new AtomicBoolean(false);
+    // started means than engine start was requested (which is possible only once)
     private final AtomicBoolean started = new AtomicBoolean(false);
 
     private CryptonoseGenericEngine(ExchangeSpecs exchangeSpecs,
@@ -208,12 +214,12 @@ public class CryptonoseGenericEngine {
     }
 
     private boolean fetchPairsData() {
-        synchronized (refreshPairDataLock) {
+        synchronized (fetchPairDataLock) {
             if (isFetchingPairsData.get())
                 return false;
             isFetchingPairsData.set(true);
         }
-        synchronized (refreshPairDataLock) {
+        synchronized (fetchPairDataLock) {
             try {
                 stopped.set(false);
                 if (pairSelectionCriteria != null) {
@@ -333,7 +339,7 @@ public class CryptonoseGenericEngine {
     }
 
     private void stopFetchPairsData() {
-        synchronized (refreshPairDataLock) {
+        synchronized (fetchPairDataLock) {
             if (chartDataProvider != null) {
                 logger.info("aborting ChartDataProvider");
                 chartDataProvider.abort();
