@@ -196,8 +196,11 @@ public class CryptonoseGenericEngine {
         return changesArrayList.toArray(new PriceChanges[changesArrayList.size()]);
     }
 
-    public void refresh() {
+    // stopTickerFirst - stop ticker connection before getting initial pairs data
+    public void refresh(boolean stopTickerFirst) {
         if (!isRefreshing.get() && !isStartingTicker.get() && !isFetchingPairsData.get()) {
+            if (stopTickerFirst)
+                stopTickerEngine();
             isRefreshing.set(true);
             logger.info("Refreshing pairs data and reconnecting websocket...");
             try {
@@ -205,7 +208,8 @@ public class CryptonoseGenericEngine {
                 stopFetchPairsData();
                 logger.fine("Refreshing pairs data...");
                 fetchPairsData();
-                stopTickerEngine();
+                if (!stopTickerFirst)
+                    stopTickerEngine();
                 startTickerEngine();
             } catch (Exception e) {
                 logger.log(Level.SEVERE, "when restarting ticker provider", e);
