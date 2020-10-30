@@ -139,7 +139,7 @@ public class CryptonoseGenericEngine {
             refreshScheduledFuture.cancel(false);
             refreshScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
                 engineMessage(new EngineMessage(EngineMessage.Type.AUTO_REFRESHING, "Auto refreshing paris data..."));
-                refresh();
+                refresh(false);
             },refreshIntervalMinutes,refreshIntervalMinutes, TimeUnit.MINUTES);
         }
     }
@@ -152,9 +152,11 @@ public class CryptonoseGenericEngine {
         stopTickerEngine();
     }
 
+    // should be called before starting engine
     public void autoRefreshPairData(int intervalMinutes) {
+        if (started.get())
+            throw new RuntimeException("Should be called before starting");
         this.refreshIntervalMinutes = intervalMinutes;
-        refreshScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(this::refresh,intervalMinutes,intervalMinutes, TimeUnit.MINUTES);
     }
 
     //should be called before starting engine
