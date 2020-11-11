@@ -345,7 +345,7 @@ public class CryptonoseGenericEngine {
                     }
 
                     @Override
-                    public void receiveTickers(List<Ticker> tickers) {
+                    public void receiveTickers(Ticker[] tickers) {
                         handleTickers(tickers, false);
                     }
 
@@ -459,7 +459,7 @@ public class CryptonoseGenericEngine {
                 }
             });
         });
-        handleTickers(tickersList, true);
+        handleTickers(tickersList.toArray(new Ticker[0]), true);
     }
 
     // isInitTicker - set true for tickers created at initialization (not send by ticker provider),
@@ -486,23 +486,23 @@ public class CryptonoseGenericEngine {
     //
     // areInitTickers - set true for tickers created at initialization (not send by ticker provider),
     //  engine update heartbeat wouldn't be sent and tickers wouldn't be sent to chart data provider
-    private void handleTickers(List<Ticker> tickers, boolean areInitTickers) {
-        logger.finest(String.format("received %d tickers",tickers.size()));
+    private void handleTickers(Ticker[] tickers, boolean areInitTickers) {
+        logger.finest(String.format("received %d tickers",tickers.length));
         if (!areInitTickers) {
             for (Ticker ticker : tickers)
                 chartDataProvider.insertTicker(ticker);
             if (engineUpdateHeartbeatReceiver != null)
                 engineUpdateHeartbeatReceiver.receiveTransactionHeartbeat();
         }
-        tickers.stream().forEach(ticker -> cryptonoseEngineChangesChecker.insertTicker(ticker));
-        if (checkChangesDelayMs > 0 && !changesCheckingTempDisableSet.contains(tickers.get(0).getPair())) {
-            changesCheckingTempDisableSet.add(tickers.get(0).getPair());
+        Arrays.stream(tickers).forEach(ticker -> cryptonoseEngineChangesChecker.insertTicker(ticker));
+        if (checkChangesDelayMs > 0 && !changesCheckingTempDisableSet.contains(tickers[0].getPair())) {
+            changesCheckingTempDisableSet.add(tickers[0].getPair());
             scheduledExecutorService.schedule(() -> {
-                changesCheckingTempDisableSet.remove(tickers.get(0).getPair());
-                checkChangesForPair(tickers.get(0).getPair());
+                changesCheckingTempDisableSet.remove(tickers[0].getPair());
+                checkChangesForPair(tickers[0].getPair());
             }, checkChangesDelayMs, TimeUnit.MILLISECONDS);
         } else
-            checkChangesForPair(tickers.get(0).getPair());
+            checkChangesForPair(tickers[0].getPair());
     }
 
     private void checkChangesForPair(String pair) {
