@@ -83,6 +83,8 @@ public class CryptonoseGenericEngine {
     private final Object startTickerEngineLock = new Object();
     // is refreshing (reconnecting when connection was previously active)
     private final AtomicBoolean isRefreshing = new AtomicBoolean(false);
+    // silent refresh doesn't send connected and disconnected messages to message receiver
+    private final AtomicBoolean silentRefresh = new AtomicBoolean(false);
     private final AtomicBoolean isFetchingPairsData = new AtomicBoolean(false);
     private final AtomicBoolean isStartingTicker = new AtomicBoolean(false);
     // to discriminate between ticker reconnecting on it's own and by a request
@@ -134,10 +136,10 @@ public class CryptonoseGenericEngine {
         started.set(true);
         engineMessage(new EngineMessage(EngineMessage.Type.CONNECTING, "Connecting..."));
         if (fetchPairsData())
-            startTickerEngine();
+            startTickerProvider();
         refreshScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             engineMessage(new EngineMessage(EngineMessage.Type.AUTO_REFRESHING, "Auto refreshing paris data..."));
-            refresh(false);
+            refresh(false, true);
         },refreshIntervalMinutes,refreshIntervalMinutes, TimeUnit.MINUTES);
     }
 
@@ -195,9 +197,16 @@ public class CryptonoseGenericEngine {
         return changesArrayList.toArray(new PriceChanges[changesArrayList.size()]);
     }
 
+    // reconnect the engine
+    public void reconnect() {
+        refresh(true, false);
+    }
+
     // stopTickerFirst - stop ticker connection before getting initial pairs data
-    public void refresh(boolean stopTickerFirst) {
+    // silent - don't send engine messages: connected/disconnected
+    private void refresh(boolean stopTickerFirst, boolean silent) {
         if (!isRefreshing.get() && !isStartingTicker.get() && !isFetchingPairsData.get()) {
+            silentRefresh.set(silent);
             if (stopTickerFirst)
                 stopTickerEngine();
             isRefreshing.set(true);
@@ -209,7 +218,7 @@ public class CryptonoseGenericEngine {
                 fetchPairsData();
                 if (!stopTickerFirst)
                     stopTickerEngine();
-                startTickerEngine();
+                startTickerProvider();
             } catch (Exception e) {
                 logger.log(Level.SEVERE, "when restarting ticker provider", e);
             }
@@ -321,14 +330,21 @@ public class CryptonoseGenericEngine {
                             case CONNECTED:
                                 if (isRefreshing.get()) {
                                     isRefreshing.set(false);
-                                }
-                                engineMessage(new EngineMessage(EngineMessage.Type.CONNECTED, "Connected"));
+                                    if (!silentRefresh.get()) {
+                                        engineMessage(new EngineMessage(EngineMessage.Type.CONNECTED, "Connected"));
+                                    }
+                                } else
+                                    engineMessage(new EngineMessage(EngineMessage.Type.CONNECTED, "Connected"));
                                 break;
                             case DISCONNECTED:
-                                engineMessage(new EngineMessage(EngineMessage.Type.DISCONNECTED, "Disconnected"));
+                                if ((isRefreshing.get() && !silentRefresh.get()) && !isRefreshing.get()) {
+                                    engineMessage(new EngineMessage(EngineMessage.Type.DISCONNECTED, "Disconnected"));
+                                }
                                 break;
                             case RECONNECTING:
-                                engineMessage(new EngineMessage(EngineMessage.Type.RECONNECTING, "Reconnecting..."));
+                                if (isRefreshing.get()) {
+                                    tickerProvider.disconnect();
+                                }
                                 break;
                         }
                     });
