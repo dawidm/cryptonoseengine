@@ -19,7 +19,7 @@
 
     <groupId>pl.dmotyka</groupId>
     <artifactId>cryptonoseengine</artifactId>
-    <version>1.4.0</version>
+    <version>1.4.1</version>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -47,7 +47,7 @@
         <dependency>
             <groupId>pl.dmotyka</groupId>
             <artifactId>exchangeutils</artifactId>
-            <version>1.5.1</version>
+            <version>1.6.1</version>
         </dependency>
         <dependency>
             <groupId>pl.dmotyka</groupId>
