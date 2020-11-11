@@ -418,6 +418,8 @@ public class CryptonoseGenericEngine {
         pairsAll=pairsArraySet.toArray(new String[pairsArraySet.size()]);
     }
 
+    // check if for used exchange, lower period chart data (than engine time periods) could be used to generate "tickers"
+    //  such "tickers" are used as initial data about recent price changes
     // returns PeriodNumCandles if tickers can be generated, otherwise null
     private PeriodNumCandles checkGenTickersFromChartData() {
         long minPeriod = periodsNumCandles.stream().mapToLong(PeriodNumCandles::getPeriodSeconds).min().getAsLong();
