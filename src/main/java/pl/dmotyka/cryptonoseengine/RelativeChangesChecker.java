@@ -54,7 +54,7 @@ public class RelativeChangesChecker {
                if(optionalHighLowDiff.isPresent()) {
                    double highLowDiff = optionalHighLowDiff.getAsDouble();
                    double highLowDiffRelativeStdDeviation = new StandardDeviation().evaluate(highLowDiffArray)/highLowDiff;
-                   relativeChangesInfoMap.put(currencyPairTimePeriod,new RelativeChangesInfo(new Double(highLowDiff), new Double(highLowDiffRelativeStdDeviation)));
+                   relativeChangesInfoMap.put(currencyPairTimePeriod,new RelativeChangesInfo(highLowDiff, highLowDiffRelativeStdDeviation));
                }
            }
        });
