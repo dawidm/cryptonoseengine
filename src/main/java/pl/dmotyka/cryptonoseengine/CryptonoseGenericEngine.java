@@ -338,7 +338,7 @@ public class CryptonoseGenericEngine {
                 if (stopped.get())
                     return;
                 engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Starting ticker provider..."));
-                tickerProvider = TickerProvider.forExchange(exchangeSpecs, new TickerReceiver() {
+                tickerProvider = exchangeSpecs.getTickerProvider(new TickerReceiver() {
                     @Override
                     public void receiveTicker(Ticker ticker) {
                         handleTicker(ticker, false);
