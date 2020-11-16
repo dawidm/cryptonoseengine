@@ -389,15 +389,13 @@ public class CryptonoseGenericEngine {
     }
 
     private void stopFetchPairsData() {
-        synchronized (fetchPairDataLock) {
-            if (chartDataProvider != null) {
-                logger.info("aborting ChartDataProvider");
-                chartDataProvider.abort();
-            }
-            if (chartDataProviderInitEngine != null) {
-                logger.info("aborting ChartDataProviderInitEngine");
-                chartDataProviderInitEngine.abort();
-            }
+        if (chartDataProvider != null) {
+            logger.info("aborting ChartDataProvider");
+            chartDataProvider.abort();
+        }
+        if (chartDataProviderInitEngine != null) {
+            logger.info("aborting ChartDataProviderInitEngine");
+            chartDataProviderInitEngine.abort();
         }
     }
 
