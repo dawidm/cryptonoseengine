@@ -102,8 +102,6 @@ public class CryptonoseGenericEngine {
                                     String[] pairs) {
         if (timePeriods.length < 1)
             throw new IllegalArgumentException("empty timePeriods");
-        if (pairSelectionCriteria.length < 1 && pairs.length < 1)
-            throw new IllegalArgumentException("empty pair selection criteria and pairs list");
         this.exchangeSpecs=exchangeSpecs;
         periodsNumCandles = Arrays.stream(timePeriods).mapToObj(timePeriod -> new PeriodNumCandles(timePeriod, relativeChangeNumCandles)).collect(Collectors.toList());
         this.relativeChangeNumCandles=relativeChangeNumCandles;
@@ -166,6 +164,10 @@ public class CryptonoseGenericEngine {
     // start the engine
     // call only once, use reconnect() for reconnections
     public void start() {
+        if ((pairSelectionCriteria == null || pairSelectionCriteria.length==0) && pairsManual.length==0) {
+            engineMessage(new EngineMessage(EngineMessage.Type.NO_PAIRS, "Got 0 currency pairs"));
+            return;
+        }
         if (started.get())
             throw new IllegalStateException("Engine can be started once");
         started.set(true);
