@@ -163,12 +163,12 @@ public class CryptonoseGenericEngine {
     // start the engine
     // call only once, use reconnect() for reconnections
     public void start() {
+        if (started.get())
+            throw new IllegalStateException("Engine can be started once");
         if ((pairSelectionCriteria == null || pairSelectionCriteria.length==0) && pairsManual.length==0) {
             engineMessage(new EngineMessage(EngineMessage.Type.NO_PAIRS, "Got 0 currency pairs"));
             return;
         }
-        if (started.get())
-            throw new IllegalStateException("Engine can be started once");
         started.set(true);
         engineMessage(new EngineMessage(EngineMessage.Type.CONNECTING, "Connecting..."));
         if (fetchPairsData())
