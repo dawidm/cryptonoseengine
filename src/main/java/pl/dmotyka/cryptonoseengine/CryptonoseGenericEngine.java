@@ -332,10 +332,12 @@ public class CryptonoseGenericEngine {
     // connect ticker provider to start receiving tickers (called after fetching pairs data)
     // when starting provider is in progress, method does nothing
     private void startTickerProvider() {
-        if (isStartingTicker.get())
-            return;
-        isStartingTicker.set(true);
-        synchronized (startTickerEngineLock) { // TODO use a future
+        synchronized (startTickerEngineLock) {
+            if (isStartingTicker.get())
+                return;
+            isStartingTicker.set(true);
+        }
+        synchronized (startTickerEngineLock) {
             try {
                 if (stopped.get())
                     return;
