@@ -174,10 +174,12 @@ public class CryptonoseGenericEngine {
         engineMessage(new EngineMessage(EngineMessage.Type.CONNECTING, "Connecting..."));
         if (fetchPairsData())
             startTickerProvider();
-        refreshScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
-            engineMessage(new EngineMessage(EngineMessage.Type.AUTO_REFRESHING, "Auto refreshing paris data..."));
-            refresh(false, true);
-        },refreshIntervalMinutes,refreshIntervalMinutes, TimeUnit.MINUTES);
+        if (refreshIntervalMinutes != null) {
+            refreshScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
+                engineMessage(new EngineMessage(EngineMessage.Type.AUTO_REFRESHING, "Auto refreshing paris data..."));
+                refresh(false, true);
+            }, refreshIntervalMinutes, refreshIntervalMinutes, TimeUnit.MINUTES);
+        }
     }
 
     // stop the engine
