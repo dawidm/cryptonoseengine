@@ -187,6 +187,7 @@ public class CryptonoseGenericEngine {
         stopped.set(true);
         if (refreshScheduledFuture != null)
             refreshScheduledFuture.cancel(false);
+        scheduledExecutorService.shutdown();
         stopFetchPairsData();
         stopTickerEngine();
     }
