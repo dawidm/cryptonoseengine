@@ -444,11 +444,11 @@ public class CryptonoseGenericEngine {
     // converts close prices from lower periods to "tickers" and use them to calculate price changes.
     // Should be used before starting ticker engine.
     private void handleAdditionalChartData(Map<CurrencyPairTimePeriod,ChartCandle[]> chartCandlesMap) {
-        List<Ticker> tickersList = new ArrayList<>(2 * chartCandlesMap.values().stream().mapToInt(chartCandles -> chartCandles.length).sum());
         long maxTimePeriod = periodsNumCandles.stream().mapToLong(PeriodNumCandles::getPeriodSeconds).max().getAsLong();
         chartCandlesMap.entrySet().stream().forEach(entry-> {
             CurrencyPairTimePeriod currencyPairTimePeriod = entry.getKey();
             ChartCandle[] chartCandles = entry.getValue();
+            List<Ticker> tickersList = new ArrayList<>(2 * chartCandles.length);
             Arrays.stream(chartCandles).forEach(chartCandle -> {
                 int currentTimestampSeconds=(int)(System.currentTimeMillis()/1000);
                 if(chartCandle.getTimestampSeconds()>currentTimestampSeconds-maxTimePeriod) {
@@ -456,8 +456,8 @@ public class CryptonoseGenericEngine {
                     tickersList.add(new Ticker(currencyPairTimePeriod.getCurrencyPairSymbol(), chartCandle.getClose(), chartCandle.getTimestampSeconds() + currencyPairTimePeriod.getTimePeriodSeconds()));
                 }
             });
+            handleTickers(tickersList.toArray(new Ticker[0]), true);
         });
-        handleTickers(tickersList.toArray(new Ticker[0]), true);
     }
 
     // isInitTicker - set true for tickers created at initialization (not send by ticker provider),
@@ -480,7 +480,7 @@ public class CryptonoseGenericEngine {
             checkChangesForPair(ticker.getPair());
     }
 
-    // Checking changes after inserting all tickers. This is for checking changes after big buys/sells that get split to multiple exchange transactions.
+    // Checking changes after inserting multiple tickers FOR ONE CURRENCY PAIR. This is for checking changes after big buys/sells that get split to multiple exchange transactions.
     //
     // areInitTickers - set true for tickers created at initialization (not send by ticker provider),
     //  engine update heartbeat wouldn't be sent and tickers wouldn't be sent to chart data provider
