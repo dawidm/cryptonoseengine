@@ -88,7 +88,7 @@ public class CryptonoseGenericEngine {
     private final AtomicBoolean silentRefresh = new AtomicBoolean(false);
     // to discriminate between ticker reconnecting on it's own and by a request
     private final AtomicBoolean isWaitingForTickerConnection = new AtomicBoolean(false);
-    // stopped means than engine was wlready started, and then stop was requested
+    // stopped means than engine was already started, and then stop was requested
     private final AtomicBoolean stopped = new AtomicBoolean(false);
     // started means than engine start was requested (which is possible only once)
     private final AtomicBoolean started = new AtomicBoolean(false);
@@ -360,6 +360,7 @@ public class CryptonoseGenericEngine {
                         case CONNECTED:
                             if (isRefreshing.get()) {
                                 isRefreshing.set(false);
+                                engineMessage(new EngineMessage(EngineMessage.Type.AUTO_REFRESHING_DONE, "Auto refreshing done"));
                                 if (!silentRefresh.get()) {
                                     engineMessage(new EngineMessage(EngineMessage.Type.CONNECTED, "Connected"));
                                 }

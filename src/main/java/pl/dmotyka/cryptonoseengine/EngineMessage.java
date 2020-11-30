@@ -26,7 +26,8 @@ public class EngineMessage {
         ERROR,
         INFO,
         NO_PAIRS,
-        AUTO_REFRESHING
+        AUTO_REFRESHING,
+        AUTO_REFRESHING_DONE
     }
 
     private Type type;
