@@ -263,7 +263,6 @@ public class CryptonoseGenericEngine {
         }
         fetchPairDataLock.lock();
         try {
-            stopped.set(false);
             if (pairSelectionCriteria != null) {
                 engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Getting currency pairs..."));
                 RepeatTillSuccess.planTask(this::getPairs, (e) -> logger.log(Level.WARNING, "when getting currency pairs", e), GET_DATA_RETRY_INTERVAL);
