@@ -19,7 +19,7 @@
 
     <groupId>pl.dmotyka</groupId>
     <artifactId>cryptonoseengine</artifactId>
-    <version>1.4.8</version>
+    <version>1.4.9</version>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
