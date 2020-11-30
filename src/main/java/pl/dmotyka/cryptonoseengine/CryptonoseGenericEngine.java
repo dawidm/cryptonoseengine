@@ -173,7 +173,7 @@ public class CryptonoseGenericEngine {
         engineMessage(new EngineMessage(EngineMessage.Type.CONNECTING, "Connecting..."));
         if (fetchPairsData())
             startTickerProvider();
-        if (refreshIntervalMinutes != null) {
+        if (refreshIntervalMinutes != null && !stopped.get()) {
             refreshScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
                 engineMessage(new EngineMessage(EngineMessage.Type.AUTO_REFRESHING, "Auto refreshing paris data..."));
                 refresh(false, true);
