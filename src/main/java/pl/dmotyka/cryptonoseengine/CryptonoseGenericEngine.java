@@ -456,7 +456,8 @@ public class CryptonoseGenericEngine {
                     tickersList.add(new Ticker(currencyPairTimePeriod.getCurrencyPairSymbol(), chartCandle.getClose(), chartCandle.getTimestampSeconds() + currencyPairTimePeriod.getTimePeriodSeconds()));
                 }
             });
-            handleTickers(tickersList.toArray(new Ticker[0]), true);
+            if (tickersList.size() > 0)
+                handleTickers(tickersList.toArray(new Ticker[0]), true);
         });
     }
 
