@@ -44,6 +44,8 @@ public class RelativeChangesChecker {
            for(Map.Entry<CurrencyPairTimePeriod,ChartCandle[]> currentEntry : chartCandlesMap.entrySet()) {
                CurrencyPairTimePeriod currencyPairTimePeriod = currentEntry.getKey();
                ChartCandle[] chartCandles = currentEntry.getValue();
+               if (chartCandles.length == 0)
+                   continue;
                double[] highLowDiffArray = Arrays.stream(chartCandles).
                        map(chartCandle -> Math.abs(chartCandle.getHigh()-chartCandle.getLow())).
                        mapToDouble(val -> val).toArray();
