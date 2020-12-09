@@ -237,9 +237,9 @@ public class CryptonoseGenericEngine {
     private void refresh(boolean stopTickerFirst, boolean silent) {
         if (!isRefreshing.get() && !startTickerEngineLock.isLocked() && !fetchPairDataLock.isLocked()) {
             silentRefresh.set(silent);
+            isRefreshing.set(true);
             if (stopTickerFirst)
                 stopTickerEngine();
-            isRefreshing.set(true);
             logger.info("Refreshing pairs data and reconnecting websocket...");
             try {
                 logger.info("Canceling refresh pair data if active...");
@@ -360,7 +360,7 @@ public class CryptonoseGenericEngine {
                         case CONNECTED:
                             if (isRefreshing.get()) {
                                 isRefreshing.set(false);
-                                engineMessage(new EngineMessage(EngineMessage.Type.AUTO_REFRESHING_DONE, "Auto refreshing done"));
+                                engineMessage(new EngineMessage(EngineMessage.Type.AUTO_REFRESHING_DONE, "Engine refresh done"));
                                 if (!silentRefresh.get()) {
                                     engineMessage(new EngineMessage(EngineMessage.Type.CONNECTED, "Connected"));
                                 }
@@ -368,7 +368,7 @@ public class CryptonoseGenericEngine {
                                 engineMessage(new EngineMessage(EngineMessage.Type.CONNECTED, "Connected"));
                             break;
                         case DISCONNECTED:
-                            if ((isRefreshing.get() && !silentRefresh.get()) && !isRefreshing.get()) {
+                            if ((isRefreshing.get() && !silentRefresh.get()) || !isRefreshing.get()) {
                                 engineMessage(new EngineMessage(EngineMessage.Type.DISCONNECTED, "Disconnected"));
                             }
                             break;
