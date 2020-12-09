@@ -192,6 +192,11 @@ public class CryptonoseGenericEngine {
         stopTickerEngine();
     }
 
+    // get all currency pairs (will return null if engine is before getting pairs data)
+    public String[] getAllPairs() {
+        return pairsAll;
+    }
+
     // subscribe chart data for pairs specified for the engine
     public void subscribeChartData(ChartDataReceiver chartDataReceiver) {
         chartDataSubscribers.add(chartDataReceiver);
