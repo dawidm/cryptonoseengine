@@ -56,6 +56,7 @@ public class CryptonoseGenericEngine {
     public static final int GET_DATA_RETRY_INTERVAL=60000;
 
     private final ExchangeSpecs exchangeSpecs;
+    private final PairSymbolConverter pairSymbolConverter;
     private final EngineChangesReceiver engineChangesReceiver;
     private EngineTransactionHeartbeatReceiver engineUpdateHeartbeatReceiver;
     private EngineMessageReceiver engineMessageReceiver;
@@ -101,7 +102,8 @@ public class CryptonoseGenericEngine {
                                     String[] pairs) {
         if (timePeriods.length < 1)
             throw new IllegalArgumentException("empty timePeriods");
-        this.exchangeSpecs=exchangeSpecs;
+        this.exchangeSpecs = exchangeSpecs;
+        pairSymbolConverter = exchangeSpecs.getPairSymbolConverter();
         periodsNumCandles = Arrays.stream(timePeriods).mapToObj(timePeriod -> new PeriodNumCandles(timePeriod, relativeChangeNumCandles)).collect(Collectors.toList());
         this.relativeChangeNumCandles=relativeChangeNumCandles;
         this.engineChangesReceiver=engineChangesReceiver;
@@ -285,7 +287,7 @@ public class CryptonoseGenericEngine {
                             String.format("Selected %d pairs: %s",
                                     pairsAll.length,
                                     Arrays.stream(pairsAll).
-                                            map(pair -> PairSymbolConverter.toFormattedString(exchangeSpecs, pair)).
+                                            map(pair -> pairSymbolConverter.toFormattedString(pair)).
                                                   collect(Collectors.joining(", "))
                             )
                     )
