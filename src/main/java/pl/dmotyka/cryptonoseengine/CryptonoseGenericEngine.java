@@ -245,7 +245,7 @@ public class CryptonoseGenericEngine {
         if (!isRefreshing.get() && !startTickerEngineLock.isLocked() && !fetchPairDataLock.isLocked()) {
             silentRefresh.set(silent);
             isRefreshing.set(true);
-            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.RECONNECTING, "reconnecting"));
+            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.RECONNECTING, "Reconnecting"));
             if (stopTickerFirst)
                 stopTickerEngine();
             logger.info("Refreshing pairs data and reconnecting websocket...");
