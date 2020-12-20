@@ -415,7 +415,7 @@ public class CryptonoseGenericEngine {
     }
 
     // get pair names according to criteria specified in pairSelectionCriteria
-    private void getPairs() throws IOException {
+    private void getPairs() throws ExchangeCommunicationException, ConnectionProblemException {
         Set<String> pairsArraySet = new HashSet<>();
         if(pairsManual!=null)
             pairsArraySet.addAll(Arrays.asList(pairsManual));
