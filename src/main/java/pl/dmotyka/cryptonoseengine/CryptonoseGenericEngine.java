@@ -168,11 +168,11 @@ public class CryptonoseGenericEngine {
     public void start() {
         if (started.get())
             throw new IllegalStateException("Engine can be started once");
+        started.set(true);
         if ((pairSelectionCriteria == null || pairSelectionCriteria.length==0) && pairsManual.length==0) {
             engineMessage(new EngineMessage(EngineMessage.Type.NO_PAIRS, "Got 0 currency pairs"));
             return;
         }
-        started.set(true);
         engineMessage(new EngineMessage(EngineMessage.Type.CONNECTING, "Connecting..."));
         if (fetchPairsData())
             startTickerProvider();
@@ -190,9 +190,9 @@ public class CryptonoseGenericEngine {
         stopped.set(true);
         if (refreshScheduledFuture != null)
             refreshScheduledFuture.cancel(false);
-        scheduledExecutorService.shutdown();
         stopFetchPairsData();
         stopTickerEngine();
+        scheduledExecutorService.shutdown();
     }
 
     // get all currency pairs (will return null if engine is before getting pairs data)
@@ -243,28 +243,28 @@ public class CryptonoseGenericEngine {
     // stopTickerFirst - stop ticker connection before getting initial pairs data
     // silent - don't send engine messages: connected/disconnected
     private void refresh(boolean stopTickerFirst, boolean silent) {
-        if (!isRefreshing.get() && !startTickerEngineLock.isLocked() && !fetchPairDataLock.isLocked()) {
-            silentRefresh.set(silent);
-            isRefreshing.set(true);
-            engineMessage(new EngineMessage(EngineMessage.Type.RECONNECTING, "Reconnecting"));
-            if (stopTickerFirst)
-                stopTickerEngine();
-            logger.info("Refreshing pairs data and reconnecting websocket...");
-            try {
-                logger.info("Canceling refresh pair data if active...");
-                stopFetchPairsData();
-                logger.fine("Refreshing pairs data...");
-                if (fetchPairsData()) {
-                    if (!stopTickerFirst)
-                        stopTickerEngine();
-                    if (!startTickerProvider())
-                        isRefreshing.set(false);
-                } else {
+        if (isRefreshing.get()) {
+            logger.warning("engine is already refreshing");
+            return;
+        }
+        silentRefresh.set(silent);
+        isRefreshing.set(true);
+        engineMessage(new EngineMessage(EngineMessage.Type.RECONNECTING, "Reconnecting"));
+        if (stopTickerFirst)
+            stopTickerEngine();
+        logger.info("refreshing pairs data and reconnecting websocket...");
+        try {
+            stopFetchPairsData();
+            if (fetchPairsData()) {
+                if (!stopTickerFirst)
+                    stopTickerEngine();
+                if (!startTickerProvider())
                     isRefreshing.set(false);
-                }
-            } catch (Exception e) {
-                logger.log(Level.SEVERE, "when restarting ticker provider", e);
+            } else {
+                isRefreshing.set(false);
             }
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "when restarting ticker provider", e);
         }
     }
 
@@ -346,8 +346,6 @@ public class CryptonoseGenericEngine {
             return false;
         }
         try {
-            if (stopped.get())
-                return false;
             engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Starting ticker provider..."));
             tickerProvider = exchangeSpecs.getTickerProvider(new TickerReceiver() {
                 @Override
@@ -399,20 +397,33 @@ public class CryptonoseGenericEngine {
     }
 
     private void stopFetchPairsData() {
+        logger.info("stopping fetching pairs data");
         if (chartDataProvider != null) {
-            logger.info("aborting ChartDataProvider");
+            logger.fine("aborting ChartDataProvider");
             chartDataProvider.abort();
         }
         if (chartDataProviderInitEngine != null) {
-            logger.info("aborting ChartDataProviderInitEngine");
+            logger.fine("aborting ChartDataProviderInitEngine");
             chartDataProviderInitEngine.abort();
         }
+        logger.fine("waiting for fetching pairs data to abort");
+        fetchPairDataLock.lock();
+        fetchPairDataLock.unlock();
+        logger.fine("fetching pairs data aborted");
     }
 
     private void stopTickerEngine() {
-        if (tickerProvider != null) {
-            logger.info("disconnecting ticker provider...");
-            tickerProvider.disconnect();
+        logger.info("stopping ticker engine");
+        logger.fine("waiting for starting ticker to end");
+        startTickerEngineLock.lock();
+        try {
+            logger.fine("starting ticker ended");
+            if (tickerProvider != null) {
+                logger.info("disconnecting ticker provider...");
+                tickerProvider.disconnect();
+            }
+        } finally {
+            startTickerEngineLock.unlock();
         }
     }
 
@@ -522,7 +533,7 @@ public class CryptonoseGenericEngine {
     }
 
     private void handleError(Throwable error) {
-        logger.log(Level.WARNING,"TickerProvider error",error);
+        logger.log(Level.WARNING,"tickerProvider error",error);
     }
 
     private void engineMessage(EngineMessage msg) {
