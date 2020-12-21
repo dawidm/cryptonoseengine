@@ -60,7 +60,7 @@ public class CryptonoseGenericEngine {
     private final PairSymbolConverter pairSymbolConverter;
     private final EngineChangesReceiver engineChangesReceiver;
     private EngineTransactionHeartbeatReceiver engineUpdateHeartbeatReceiver;
-    private EngineMessageReceiver engineMessageReceiver;
+    private EngineMessageQueue engineMessageQueue;
     private final Set<ChartDataReceiver> chartDataSubscribers=new HashSet<>();
     private final List<PeriodNumCandles> periodsNumCandles;
     private final int relativeChangeNumCandles;
@@ -131,7 +131,7 @@ public class CryptonoseGenericEngine {
     };
 
     public void setEngineMessageReceiver(EngineMessageReceiver engineMessageReceiver) {
-        this.engineMessageReceiver=engineMessageReceiver;
+        engineMessageQueue= new EngineMessageQueue(engineMessageReceiver);
     }
 
     public void setEngineUpdateHeartbeatReceiver(EngineTransactionHeartbeatReceiver engineUpdateHeartbeatReceiver) {
@@ -246,7 +246,7 @@ public class CryptonoseGenericEngine {
         if (!isRefreshing.get() && !startTickerEngineLock.isLocked() && !fetchPairDataLock.isLocked()) {
             silentRefresh.set(silent);
             isRefreshing.set(true);
-            engineMessageReceiver.message(new EngineMessage(EngineMessage.Type.RECONNECTING, "Reconnecting"));
+            engineMessage(new EngineMessage(EngineMessage.Type.RECONNECTING, "Reconnecting"));
             if (stopTickerFirst)
                 stopTickerEngine();
             logger.info("Refreshing pairs data and reconnecting websocket...");
@@ -522,7 +522,7 @@ public class CryptonoseGenericEngine {
     }
 
     private void engineMessage(EngineMessage msg) {
-        if (engineMessageReceiver != null)
-            engineMessageReceiver.message(msg);
+        if (engineMessageQueue != null)
+            engineMessageQueue.addMessage(msg);
     }
 }
