@@ -415,7 +415,6 @@ public class CryptonoseGenericEngine {
     }
 
     private void stopTickerEngine() {
-        logger.info("stopping ticker engine");
         if (startTickerEngineLock.isLocked())
             logger.fine("waiting for starting ticker to end");
         startTickerEngineLock.lock();
