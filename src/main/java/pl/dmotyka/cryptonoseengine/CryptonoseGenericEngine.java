@@ -406,18 +406,20 @@ public class CryptonoseGenericEngine {
             logger.fine("aborting ChartDataProviderInitEngine");
             chartDataProviderInitEngine.abort();
         }
-        logger.fine("waiting for fetching pairs data to abort");
-        fetchPairDataLock.lock();
-        fetchPairDataLock.unlock();
-        logger.fine("fetching pairs data aborted");
+        if (fetchPairDataLock.isLocked()) {
+            logger.fine("waiting for fetching pairs data to abort");
+            fetchPairDataLock.lock();
+            fetchPairDataLock.unlock();
+            logger.fine("fetching pairs data aborted");
+        }
     }
 
     private void stopTickerEngine() {
         logger.info("stopping ticker engine");
-        logger.fine("waiting for starting ticker to end");
+        if (startTickerEngineLock.isLocked())
+            logger.fine("waiting for starting ticker to end");
         startTickerEngineLock.lock();
         try {
-            logger.fine("starting ticker ended");
             if (tickerProvider != null) {
                 logger.info("disconnecting ticker provider...");
                 tickerProvider.disconnect();
