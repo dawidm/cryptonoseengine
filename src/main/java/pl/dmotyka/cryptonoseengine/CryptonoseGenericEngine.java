@@ -254,10 +254,11 @@ public class CryptonoseGenericEngine {
                 logger.info("Canceling refresh pair data if active...");
                 stopFetchPairsData();
                 logger.fine("Refreshing pairs data...");
-                fetchPairsData();
-                if (!stopTickerFirst)
-                    stopTickerEngine();
-                startTickerProvider();
+                if (fetchPairsData()) {
+                    if (!stopTickerFirst)
+                        stopTickerEngine();
+                    startTickerProvider();
+                }
             } catch (Exception e) {
                 logger.log(Level.SEVERE, "when restarting ticker provider", e);
             }
