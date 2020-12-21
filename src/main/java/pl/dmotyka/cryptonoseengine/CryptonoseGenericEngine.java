@@ -408,11 +408,9 @@ public class CryptonoseGenericEngine {
     }
 
     private void stopTickerEngine() {
-        synchronized (startTickerEngineLock) {
-            if (tickerProvider != null) {
-                logger.info("disconnecting ticker provider...");
-                tickerProvider.disconnect();
-            }
+        if (tickerProvider != null) {
+            logger.info("disconnecting ticker provider...");
+            tickerProvider.disconnect();
         }
     }
 
