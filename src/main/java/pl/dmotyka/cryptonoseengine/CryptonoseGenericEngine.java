@@ -268,11 +268,10 @@ public class CryptonoseGenericEngine {
     // get pairs data - pair names and chart candles for them
     // when fetching data is already in progress, method does nothing
     private boolean fetchPairsData() {
-        if (fetchPairDataLock.isLocked()) {
+        if (!fetchPairDataLock.tryLock()) {
             logger.warning("fetching pairs data already in progress");
             return false;
         }
-        fetchPairDataLock.lock();
         try {
             if (pairSelectionCriteria != null) {
                 engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Getting currency pairs..."));
@@ -339,11 +338,10 @@ public class CryptonoseGenericEngine {
     // connect ticker provider to start receiving tickers (called after fetching pairs data)
     // when starting provider is in progress, method does nothing
     private void startTickerProvider() {
-        if (startTickerEngineLock.isLocked()) {
+        if (!startTickerEngineLock.tryLock()) {
             logger.warning("ticker provider is already starting");
             return;
         }
-        startTickerEngineLock.lock();
         try {
             if (stopped.get())
                 return;
