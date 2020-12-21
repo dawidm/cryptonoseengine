@@ -223,7 +223,7 @@ public class CryptonoseGenericEngine {
     public PriceChanges[] requestAllPairsChanges() {
         if (pairsAll == null)
             return new PriceChanges[] {};
-        ArrayList<PriceChanges> changesArrayList = new ArrayList(pairsAll.length*periodsNumCandles.size());
+        ArrayList<PriceChanges> changesArrayList = new ArrayList<>(pairsAll.length*periodsNumCandles.size());
         for(String pair : pairsAll) {
             PriceChanges[] priceChanges = cryptonoseEngineChangesChecker.checkChanges(pair);
             if(priceChanges==null)
@@ -232,7 +232,7 @@ public class CryptonoseGenericEngine {
                 relativeChangesChecker.setRelativeChanges(priceChanges);
             changesArrayList.addAll(Arrays.asList(priceChanges));
         }
-        return changesArrayList.toArray(new PriceChanges[changesArrayList.size()]);
+        return changesArrayList.toArray(new PriceChanges[0]);
     }
 
     // reconnect the engine
@@ -292,7 +292,7 @@ public class CryptonoseGenericEngine {
                             String.format("Selected %d pairs: %s",
                                     pairsAll.length,
                                     Arrays.stream(pairsAll).
-                                            map(pair -> pairSymbolConverter.toFormattedString(pair)).
+                                            map(pairSymbolConverter::toFormattedString).
                                                   collect(Collectors.joining(", "))
                             )
                     )
@@ -300,7 +300,7 @@ public class CryptonoseGenericEngine {
             if (stopped.get())
                 return false;
             engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Getting chart data..."));
-            chartDataProvider = new ChartDataProvider(exchangeSpecs, pairsAll, periodsNumCandles.toArray(new PeriodNumCandles[periodsNumCandles.size()]));
+            chartDataProvider = new ChartDataProvider(exchangeSpecs, pairsAll, periodsNumCandles.toArray(new PeriodNumCandles[0]));
             chartDataProvider.enableCandlesGenerator();
             for (ChartDataReceiver currentChartDataSubscriber : chartDataSubscribers) {
                 chartDataProvider.subscribeChartCandles(currentChartDataSubscriber);
@@ -318,7 +318,7 @@ public class CryptonoseGenericEngine {
                 if (additionalPeriodNumCandles != null) {
                     engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Getting additional chart data..."));
                     chartDataProviderInitEngine = new ChartDataProvider(exchangeSpecs, pairsAll, new PeriodNumCandles[] {additionalPeriodNumCandles});
-                    chartDataProviderInitEngine.subscribeChartCandles(chartCandlesMap -> handleAdditionalChartData(chartCandlesMap));
+                    chartDataProviderInitEngine.subscribeChartCandles(this::handleAdditionalChartData);
                     RepeatTillSuccess.planTask(() -> chartDataProviderInitEngine.refreshData(), (e) -> {
                         engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Error getting additional chart data"));
                         logger.log(Level.WARNING, "when getting chart data", e);
@@ -514,7 +514,7 @@ public class CryptonoseGenericEngine {
             if (engineUpdateHeartbeatReceiver != null)
                 engineUpdateHeartbeatReceiver.receiveTransactionHeartbeat();
         }
-        Arrays.stream(tickers).forEach(ticker -> cryptonoseEngineChangesChecker.insertTicker(ticker));
+        Arrays.stream(tickers).forEach(cryptonoseEngineChangesChecker::insertTicker);
         if (checkChangesDelayMs > 0 && !changesCheckingTempDisableSet.contains(tickers[0].getPair())) {
             changesCheckingTempDisableSet.add(tickers[0].getPair());
             scheduledExecutorService.schedule(() -> {
