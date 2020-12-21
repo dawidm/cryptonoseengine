@@ -257,7 +257,10 @@ public class CryptonoseGenericEngine {
                 if (fetchPairsData()) {
                     if (!stopTickerFirst)
                         stopTickerEngine();
-                    startTickerProvider();
+                    if (!startTickerProvider())
+                        isRefreshing.set(false);
+                } else {
+                    isRefreshing.set(false);
                 }
             } catch (Exception e) {
                 logger.log(Level.SEVERE, "when restarting ticker provider", e);
@@ -337,14 +340,14 @@ public class CryptonoseGenericEngine {
 
     // connect ticker provider to start receiving tickers (called after fetching pairs data)
     // when starting provider is in progress, method does nothing
-    private void startTickerProvider() {
+    private boolean startTickerProvider() {
         if (!startTickerEngineLock.tryLock()) {
             logger.warning("ticker provider is already starting");
-            return;
+            return false;
         }
         try {
             if (stopped.get())
-                return;
+                return false;
             engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Starting ticker provider..."));
             tickerProvider = exchangeSpecs.getTickerProvider(new TickerReceiver() {
                 @Override
@@ -376,7 +379,7 @@ public class CryptonoseGenericEngine {
                                 engineMessage(new EngineMessage(EngineMessage.Type.CONNECTED, "Connected"));
                             break;
                         case DISCONNECTED:
-                            if (!isRefreshing.get()) {
+                            if (!isRefreshing.get() || (isRefreshing.get() && !silentRefresh.get())) {
                                 engineMessage(new EngineMessage(EngineMessage.Type.DISCONNECTED, "Disconnected"));
                             }
                             break;
@@ -388,6 +391,7 @@ public class CryptonoseGenericEngine {
                     }
                 });
             }, t -> logger.log(Level.WARNING, "when connecting ticker provider", t), GET_DATA_RETRY_INTERVAL);
+            return true;
         }
         finally {
             startTickerEngineLock.unlock();
