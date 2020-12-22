@@ -241,7 +241,7 @@ public class CryptonoseGenericEngine {
     }
 
     // stopTickerFirst - stop ticker connection before getting initial pairs data
-    // silent - don't send engine messages: connected/disconnected
+    // silent - don't send engine "connected" message
     private void refresh(boolean stopTickerFirst, boolean silent) {
         if (isRefreshing.get()) {
             logger.warning("engine is already refreshing");
@@ -377,7 +377,7 @@ public class CryptonoseGenericEngine {
                                 engineMessage(new EngineMessage(EngineMessage.Type.CONNECTED, "Connected"));
                             break;
                         case DISCONNECTED:
-                            if (!isRefreshing.get() || (isRefreshing.get() && !silentRefresh.get())) {
+                            if (!isRefreshing.get()) {
                                 engineMessage(new EngineMessage(EngineMessage.Type.DISCONNECTED, "Disconnected"));
                             }
                             break;
