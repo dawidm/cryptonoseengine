@@ -23,6 +23,7 @@ import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
@@ -85,15 +86,15 @@ public class CryptonoseGenericEngine {
     private final ReentrantLock fetchPairDataLock = new ReentrantLock();
     private final ReentrantLock startTickerEngineLock = new ReentrantLock();
     // is refreshing (reconnecting when connection was previously active)
-    private final AtomicBoolean isRefreshing = new AtomicBoolean(false);
+    private final Semaphore refreshingSemaphore = new Semaphore(1);
     // silent refresh doesn't send connected and disconnected messages to message receiver
     private final AtomicBoolean silentRefresh = new AtomicBoolean(false);
-    // to discriminate between ticker reconnecting on it's own and by a request
-    private final AtomicBoolean isWaitingForTickerConnection = new AtomicBoolean(false);
     // stopped means than engine was already started, and then stop was requested
     private final AtomicBoolean stopped = new AtomicBoolean(false);
     // started means than engine start was requested (which is possible only once)
     private final AtomicBoolean started = new AtomicBoolean(false);
+    // engine wars started and the connection was successful
+    private final AtomicBoolean startedAndConnected = new AtomicBoolean(false);
 
     private CryptonoseGenericEngine(ExchangeSpecs exchangeSpecs,
                                     EngineChangesReceiver engineChangesReceiver,
@@ -243,28 +244,27 @@ public class CryptonoseGenericEngine {
     // stopTickerFirst - stop ticker connection before getting initial pairs data
     // silent - don't send engine "connected" message
     private void refresh(boolean stopTickerFirst, boolean silent) {
-        if (isRefreshing.get()) {
+        if (!startedAndConnected.get()) {
+            logger.warning("engine should be started and connected before reconnecting");
+            return;
+        }
+        if (!refreshingSemaphore.tryAcquire()) {
             logger.warning("engine is already refreshing");
             return;
         }
         silentRefresh.set(silent);
-        isRefreshing.set(true);
         engineMessage(new EngineMessage(EngineMessage.Type.RECONNECTING, "Reconnecting"));
+        logger.info("refreshing pairs data and reconnecting websocket...");
         if (stopTickerFirst)
             stopTickerEngine();
-        logger.info("refreshing pairs data and reconnecting websocket...");
-        try {
-            stopFetchPairsData();
-            if (fetchPairsData()) {
-                if (!stopTickerFirst)
-                    stopTickerEngine();
-                if (!startTickerProvider())
-                    isRefreshing.set(false);
-            } else {
-                isRefreshing.set(false);
-            }
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, "when restarting ticker provider", e);
+        stopFetchPairsData();
+        if (fetchPairsData()) {
+            if (!stopTickerFirst)
+                stopTickerEngine();
+            if (!startTickerProvider())
+                refreshingSemaphore.release();
+        } else {
+            refreshingSemaphore.release();
         }
     }
 
@@ -367,24 +367,25 @@ public class CryptonoseGenericEngine {
                 tickerProvider.connect(tickerProviderConnectionState -> {
                     switch (tickerProviderConnectionState) {
                         case CONNECTED:
-                            if (isRefreshing.get()) {
-                                isRefreshing.set(false);
+                            logger.info("ticker provider state: CONNECTED");
+                            if (refreshingSemaphore.availablePermits() == 0) {
+                                refreshingSemaphore.release();
                                 engineMessage(new EngineMessage(EngineMessage.Type.AUTO_REFRESHING_DONE, "Engine refresh done"));
                                 if (!silentRefresh.get()) {
                                     engineMessage(new EngineMessage(EngineMessage.Type.CONNECTED, "Connected"));
                                 }
                             } else
-                                engineMessage(new EngineMessage(EngineMessage.Type.CONNECTED, "Connected"));
+                                if (!startedAndConnected.getAndSet(true))
+                                    engineMessage(new EngineMessage(EngineMessage.Type.CONNECTED, "Connected"));
                             break;
                         case DISCONNECTED:
-                            if (!isRefreshing.get()) {
+                            logger.info("ticker provider state: DISCONNECTED");
+                            if (refreshingSemaphore.availablePermits() > 0) {
                                 engineMessage(new EngineMessage(EngineMessage.Type.DISCONNECTED, "Disconnected"));
                             }
                             break;
                         case RECONNECTING:
-                            if (isRefreshing.get()) {
-                                tickerProvider.disconnect();
-                            }
+                            logger.info("ticker provider state: RECONNECTING");
                             break;
                     }
                 });
