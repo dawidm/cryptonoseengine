@@ -23,7 +23,6 @@ import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
@@ -86,7 +85,9 @@ public class CryptonoseGenericEngine {
     private final ReentrantLock fetchPairDataLock = new ReentrantLock();
     private final ReentrantLock startTickerEngineLock = new ReentrantLock();
     // is refreshing (reconnecting when connection was previously active)
-    private final Semaphore refreshingSemaphore = new Semaphore(1);
+    private final AtomicBoolean isRefreshing = new AtomicBoolean(false);
+    // ticker connection is initiated, waiting to get CONNECTED state
+    private final AtomicBoolean isWaitingForTickerConnection = new AtomicBoolean(false);
     // silent refresh doesn't send connected and disconnected messages to message receiver
     private final AtomicBoolean silentRefresh = new AtomicBoolean(false);
     // stopped means than engine was already started, and then stop was requested
@@ -248,13 +249,12 @@ public class CryptonoseGenericEngine {
             logger.warning("engine should be started and connected before reconnecting");
             return;
         }
-        if (!refreshingSemaphore.tryAcquire()) {
+        if (isRefreshing.getAndSet(true)) {
             logger.warning("engine is already refreshing");
             return;
         }
+        logger.info(String.format("refreshing pairs data and reconnecting websocket (silent: %b, stopTickerFirst: %b)", silent, stopTickerFirst));
         silentRefresh.set(silent);
-        engineMessage(new EngineMessage(EngineMessage.Type.RECONNECTING, "Reconnecting"));
-        logger.info("refreshing pairs data and reconnecting websocket...");
         if (stopTickerFirst)
             stopTickerEngine();
         stopFetchPairsData();
@@ -262,9 +262,9 @@ public class CryptonoseGenericEngine {
             if (!stopTickerFirst)
                 stopTickerEngine();
             if (!startTickerProvider())
-                refreshingSemaphore.release();
+                isRefreshing.set(false);
         } else {
-            refreshingSemaphore.release();
+            isRefreshing.set(false);
         }
     }
 
@@ -275,6 +275,7 @@ public class CryptonoseGenericEngine {
             logger.warning("fetching pairs data already in progress");
             return false;
         }
+        logger.info("getting pairs data");
         try {
             if (pairSelectionCriteria != null) {
                 engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Getting currency pairs..."));
@@ -341,11 +342,16 @@ public class CryptonoseGenericEngine {
     // connect ticker provider to start receiving tickers (called after fetching pairs data)
     // when starting provider is in progress, method does nothing
     private boolean startTickerProvider() {
+        if (isWaitingForTickerConnection.getAndSet(true)) {
+            logger.warning("ticker provider is already starting (waiting for the connection)");
+            return false;
+        }
         if (!startTickerEngineLock.tryLock()) {
             logger.warning("ticker provider is already starting");
             return false;
         }
         try {
+            logger.info("starting ticker provider...");
             engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Starting ticker provider..."));
             tickerProvider = exchangeSpecs.getTickerProvider(new TickerReceiver() {
                 @Override
@@ -368,19 +374,23 @@ public class CryptonoseGenericEngine {
                     switch (tickerProviderConnectionState) {
                         case CONNECTED:
                             logger.info("ticker provider state: CONNECTED");
-                            if (refreshingSemaphore.availablePermits() == 0) {
-                                refreshingSemaphore.release();
+                            logger.fine(String.format("state: refreshing: %b, waiting ticker: %b", isRefreshing.get(), isWaitingForTickerConnection.get()));
+                            if (isRefreshing.get() && isWaitingForTickerConnection.get()) {
+                                isRefreshing.set(false);
                                 engineMessage(new EngineMessage(EngineMessage.Type.AUTO_REFRESHING_DONE, "Engine refresh done"));
                                 if (!silentRefresh.get()) {
                                     engineMessage(new EngineMessage(EngineMessage.Type.CONNECTED, "Connected"));
                                 }
-                            } else
+                            } else {
                                 if (!startedAndConnected.getAndSet(true))
                                     engineMessage(new EngineMessage(EngineMessage.Type.CONNECTED, "Connected"));
+                            }
+                            isWaitingForTickerConnection.set(false);
+                            logger.fine("isWaitingForTickerConnection set false");
                             break;
                         case DISCONNECTED:
                             logger.info("ticker provider state: DISCONNECTED");
-                            if (refreshingSemaphore.availablePermits() > 0) {
+                            if (!isRefreshing.get()) {
                                 engineMessage(new EngineMessage(EngineMessage.Type.DISCONNECTED, "Disconnected"));
                             }
                             break;
@@ -391,8 +401,7 @@ public class CryptonoseGenericEngine {
                 });
             }, t -> logger.log(Level.WARNING, "when connecting ticker provider", t), GET_DATA_RETRY_INTERVAL);
             return true;
-        }
-        finally {
+        } finally {
             startTickerEngineLock.unlock();
         }
     }
@@ -488,8 +497,9 @@ public class CryptonoseGenericEngine {
     //  engine update heartbeat wouldn't be sent and tickers wouldn't be sent to chart data provider
     private void handleTicker(Ticker ticker, boolean isInitTicker) {
         logger.finest(String.format("received ticker %s",ticker.getPair()));
-        if (!isInitTicker) {
-            chartDataProvider.insertTicker(ticker);
+        if (!isInitTicker) { // chart data provider already has this data
+            if (!isRefreshing.get()) // because provider could have different pairs data during refresh
+                chartDataProvider.insertTicker(ticker);
             if (engineUpdateHeartbeatReceiver != null)
                 engineUpdateHeartbeatReceiver.receiveTransactionHeartbeat();
         }
@@ -510,9 +520,10 @@ public class CryptonoseGenericEngine {
     //  engine update heartbeat wouldn't be sent and tickers wouldn't be sent to chart data provider
     private void handleTickers(Ticker[] tickers, boolean areInitTickers) {
         logger.finest(String.format("received %d tickers",tickers.length));
-        if (!areInitTickers) {
+        if (!areInitTickers) { // chart data provider already has this data
             for (Ticker ticker : tickers)
-                chartDataProvider.insertTicker(ticker);
+                if (!isRefreshing.get()) // because provider could have different pairs data during refresh
+                    chartDataProvider.insertTicker(ticker);
             if (engineUpdateHeartbeatReceiver != null)
                 engineUpdateHeartbeatReceiver.receiveTransactionHeartbeat();
         }
