@@ -1,7 +1,7 @@
 /*
  * Cryptonose
  *
- * Copyright © 2019-2020 Dawid Motyka
+ * Copyright © 2019-2021 Dawid Motyka
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
  *
@@ -17,6 +17,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.OptionalDouble;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
 import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
@@ -36,6 +37,7 @@ public class RelativeChangesChecker {
     // chart candle is used for calculation only if its price change if higher than last price multiplied by this value
     public static final double MIN_CANDLE_CHANGE = 0.0001;
 
+    private final AtomicBoolean useMedianHighLowDiff = new AtomicBoolean(false);
     private Map<CurrencyPairTimePeriod,RelativeChangesInfo> relativeChangesInfoMap=new HashMap<>();
 
     public RelativeChangesChecker(ChartDataProvider chartDataProvider, int numCandles) {
@@ -50,9 +52,13 @@ public class RelativeChangesChecker {
                        map(chartCandle -> Math.abs(chartCandle.getHigh()-chartCandle.getLow())).
                        mapToDouble(val -> val).toArray();
                double lastClosePrice = chartCandles[chartCandles.length-1].getClose();
-               OptionalDouble optionalHighLowDiff = Arrays.stream(highLowDiffArray).
-                       filter(value -> value > lastClosePrice * MIN_CANDLE_CHANGE).
-                       average();
+               highLowDiffArray = Arrays.stream(highLowDiffArray).filter(value -> value > lastClosePrice * MIN_CANDLE_CHANGE).toArray();
+               OptionalDouble optionalHighLowDiff;
+               if (useMedianHighLowDiff.get()) {
+                   optionalHighLowDiff = calcMedian(highLowDiffArray);
+               } else {
+                   optionalHighLowDiff = Arrays.stream(highLowDiffArray).average();
+               }
                if(optionalHighLowDiff.isPresent()) {
                    double highLowDiff = optionalHighLowDiff.getAsDouble();
                    double highLowDiffRelativeStdDeviation = new StandardDeviation().evaluate(highLowDiffArray)/highLowDiff;
@@ -60,6 +66,19 @@ public class RelativeChangesChecker {
                }
            }
        });
+    }
+
+    private OptionalDouble calcMedian(double[] highLowDiffArray) {
+        OptionalDouble optionalHighLowDiff;
+        double[] sortedDiffs = Arrays.stream(highLowDiffArray).sorted().toArray();
+        if (sortedDiffs.length == 0 ) {
+            optionalHighLowDiff = OptionalDouble.empty();
+        } else if (sortedDiffs.length % 2 == 0) {
+            optionalHighLowDiff = OptionalDouble.of((sortedDiffs[sortedDiffs.length/2] + sortedDiffs[sortedDiffs.length/2-1]) / 2);
+        } else {
+            optionalHighLowDiff = OptionalDouble.of(sortedDiffs[sortedDiffs.length/2]);
+        }
+        return optionalHighLowDiff;
     }
 
     public double getRelativeChangeValue(String pair, long timePeriodSeconds, double priceChange) throws NoDataException {
@@ -92,6 +111,11 @@ public class RelativeChangesChecker {
     public void setRelativeChanges(PriceChanges[] priceChanges) {
         for(PriceChanges priceChange : priceChanges)
             setRelativeChange(priceChange);
+    }
+
+    // call to switch changes checker to use median instead of average high-low differences
+    public void setUseMedianHighLowDiff() {
+        useMedianHighLowDiff.set(true);
     }
 
 }
