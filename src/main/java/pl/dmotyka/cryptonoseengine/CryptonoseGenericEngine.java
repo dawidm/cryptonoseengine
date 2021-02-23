@@ -69,6 +69,7 @@ public class CryptonoseGenericEngine {
     private final String[] pairsManual;
     private boolean initEngineWithLowerPeriodChartData=false;
     private int checkChangesDelayMs = 0;
+    private final AtomicBoolean useMedianRelativeChanges = new AtomicBoolean(false);
 
     private String[] pairsAll;
 
@@ -307,6 +308,7 @@ public class CryptonoseGenericEngine {
                 chartDataProvider.subscribeChartCandles(currentChartDataSubscriber);
             }
             relativeChangesChecker = new RelativeChangesChecker(chartDataProvider, relativeChangeNumCandles);
+            relativeChangesChecker.setUseMedianHighLowDiff();
             RepeatTillSuccess.planTask(() -> chartDataProvider.refreshData(pairsAll), (e) -> {
                 engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Error getting chart data"));
                 logger.log(Level.WARNING, "when getting chart data", e);
@@ -552,5 +554,10 @@ public class CryptonoseGenericEngine {
     private void engineMessage(EngineMessage msg) {
         if (engineMessageQueue != null)
             engineMessageQueue.addMessage(msg);
+    }
+
+    // call before starting the engine to use relative changes calculated using median high-low diff
+    public void useMedianRelativeChanges() {
+        useMedianRelativeChanges.set(true);
     }
 }
