@@ -195,7 +195,7 @@ public class CryptonoseGenericEngine {
             refreshScheduledFuture.cancel(false);
         stopFetchPairsData();
         stopTickerEngine();
-        scheduledExecutorService.shutdown();
+        scheduledExecutorService.shutdownNow();
     }
 
     // get all currency pairs (will return null if engine is before getting pairs data)
@@ -541,9 +541,6 @@ public class CryptonoseGenericEngine {
     }
 
     private void checkChangesForPair(String pair) {
-        if (stopped.get()) {
-            return;
-        }
         PriceChanges[] priceChanges = cryptonoseEngineChangesChecker.checkChanges(pair);
         if(relativeChangesChecker!=null)
             relativeChangesChecker.setRelativeChanges(priceChanges);
