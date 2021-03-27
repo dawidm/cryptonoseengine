@@ -289,14 +289,15 @@ public class CryptonoseGenericEngine {
                 }
             }
             engineMessage(
-                    new EngineMessage(
+                    new EngineMessageSelectedPairs(
                             EngineMessage.Type.INFO,
                             String.format("Selected %d pairs: %s",
                                     pairsAll.length,
                                     Arrays.stream(pairsAll).
                                             map(pairSymbolConverter::toFormattedString).
                                                   collect(Collectors.joining(", "))
-                            )
+                            ),
+                            pairsAll.length
                     )
             );
             if (stopped.get())
