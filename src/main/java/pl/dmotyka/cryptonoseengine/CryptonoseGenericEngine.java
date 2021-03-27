@@ -541,6 +541,9 @@ public class CryptonoseGenericEngine {
     }
 
     private void checkChangesForPair(String pair) {
+        if (stopped.get()) {
+            return;
+        }
         PriceChanges[] priceChanges = cryptonoseEngineChangesChecker.checkChanges(pair);
         if(relativeChangesChecker!=null)
             relativeChangesChecker.setRelativeChanges(priceChanges);
