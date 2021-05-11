@@ -50,6 +50,8 @@ public class PriceChanges {
         this.minAfterMaxTimestampSec = minAfterMaxTimestampSec;
     }
 
+    // if maximum price is more recent: 100*(maxPrice-minPrice)/minPrice
+    // otherwise: 100*(minPrice-maxPrice)/maxPrice
     public double getPercentChange() {
         //price risin
         if (maxPriceTimestampSec > minPriceTimestampSec) {
@@ -61,6 +63,8 @@ public class PriceChanges {
         }
     }
 
+    // if maximum price is more recent: maxPrice-minPrice
+    // otherwise: minPrice-maxPrice
     public double getChange() {
         //price risin
         if (maxPriceTimestampSec > minPriceTimestampSec) {
@@ -72,22 +76,27 @@ public class PriceChanges {
         }
     }
 
+    // get change between maximum price and the lowest consecutive price, reversed
     public double getDropChange() {
         return minAfterMaxPrice-maxPrice;
     }
 
+    // get percent change between maximum price and the lowest consecutive price, reversed
     public double getDropPercentChange() {
         return 100*(minAfterMaxPrice-maxPrice)/maxPrice;
     }
 
+    // get change between minimum price and the highest consecutive price
     public double getRiseChange() {
         return minPrice-maxAfterMinPrice;
     }
 
+    // get percent change between minimum price and the highest consecutive price
     public double getRisePercentChange() {
         return 100*(minPrice-maxAfterMinPrice)/maxAfterMinPrice;
     }
 
+    // get change between last price and highest/lowest price, depending which one has bigger absolute value
     public double getLastChange() {
         double riseChange=lastPrice-minPrice;
         double dropChange=maxPrice-lastPrice;
@@ -96,6 +105,7 @@ public class PriceChanges {
         return -dropChange;
     }
 
+    // get percent change between last price and highest/lowest price, depending which one has bigger absolute value
     public double getLastPercentChange() {
         double riseChange=lastPrice-minPrice;
         double dropChange=maxPrice-lastPrice;
@@ -104,62 +114,77 @@ public class PriceChanges {
         return -100*dropChange/lastPrice;
     }
 
+    // get time of change for getChange() in seconds
     public long getChangeTimeSeconds() {
         return Math.abs(minPriceTimestampSec - maxPriceTimestampSec);
     }
 
+    // get time of change for getDropChange() in seconds
     public long getDropChangeTimeSeconds() {
         return minAfterMaxTimestampSec - minPriceTimestampSec;
     }
 
+    // get time of change for getRiseChange() in seconds
     public long getRiseChangeTimeSeconds() {
         return maxAfterMinTimestampSec - minPriceTimestampSec;
     }
 
+    // time (seconds) difference between current timestamp and the higher of the two: min price timestamp, max price timestamp
     public long getPriceChangeAgeSeconds() {
         return System.currentTimeMillis()/1000-Math.max(minPriceTimestampSec, maxPriceTimestampSec);
     }
 
+    // the most recent price
     public double getLastPrice() {
         return lastPrice;
     }
 
+    // time period for which price changes are calculated
     public long getTimePeriodSeconds() {
         return timePeriodSeconds;
     }
 
+    // currency pair for which price changes are calculated
     public String getCurrencyPair() {
         return currencyPair;
     }
 
+    // get minimum price in the whole period
     public double getMinPrice() {
         return minPrice;
     }
 
+    // get maximum price in the whole period
     public double getMaxPrice() {
         return maxPrice;
     }
 
+    // get maximum price, but only with timestamp higher that minimum price
     public double getMaxAfterMinPrice() {
         return maxAfterMinPrice;
     }
 
+    // get minimum price, but only with timestamp higher that maximum price
     public double getMinAfterMaxPrice() {
         return minAfterMaxPrice;
     }
 
+    // relative value for getChange() and getPercentChange()
     public Double getRelativePriceChange() {
         return relativePriceChange;
     }
 
+    // relative value for getLastChange() and getLastPercentChange()
     public Double getRelativeLastPriceChange() {
         return relativeLastPriceChange;
     }
 
+    // relative value for getDropChange() and getDropPercentChange()
     public Double getRelativeDropPriceChange() {
         return relativeDropPriceChange;
     }
 
+    // relative value for getRiseChange() and getRisePercentChange()
     public Double getRelativeRisePriceChange() {
         return relativeRisePriceChange;
     }
@@ -168,14 +193,17 @@ public class PriceChanges {
         return highLowDiffRelativeStdDev;
     }
 
+    // get bigger of two values: min price timestamp and max price timestamp
     public long getFinalPriceTimestampSec() {
         return Math.max(maxPriceTimestampSec, minPriceTimestampSec);
     }
 
+    // get lower of two values: min price timestamp and max price timestamp
     public long getReferencePriceTimestampSec() {
         return Math.min(maxPriceTimestampSec, minPriceTimestampSec);
     }
 
+    // for getLastChange() and getLastPercentChange, get timestamp of the price which was the reference for the calculation
     public long getReferenceToLastPriceTimestampSec() {
         if (getLastPercentChange() > 0) {
             return minPriceTimestampSec;
@@ -184,6 +212,7 @@ public class PriceChanges {
         }
     }
 
+    // get timestamp of the most recent price
     public long getLastPriceTimestampSec() {
         return lastPriceTimestampSec;
     }
