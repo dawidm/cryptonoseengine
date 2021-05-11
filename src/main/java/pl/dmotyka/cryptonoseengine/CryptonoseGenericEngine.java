@@ -66,7 +66,7 @@ public class CryptonoseGenericEngine {
     private final int relativeChangeNumCandles;
     private final PairSelectionCriteria[] pairSelectionCriteria;
     private Integer refreshIntervalMinutes = null;
-    private final String[] pairsManual;
+    private final Set<String> pairsManualSet;
     private boolean initEngineWithLowerPeriodChartData=false;
     private int checkChangesDelayMs = 0;
     private final AtomicBoolean useMedianRelativeChanges = new AtomicBoolean(false);
@@ -113,7 +113,7 @@ public class CryptonoseGenericEngine {
         this.engineChangesReceiver=engineChangesReceiver;
         cryptonoseEngineChangesChecker = new CryptonoseEngineChangesChecker(timePeriods);
         this.pairSelectionCriteria=pairSelectionCriteria;
-        this.pairsManual=pairs;
+        this.pairsManualSet = new HashSet<>(Arrays.asList(pairs));
         scheduledExecutorService= Executors.newScheduledThreadPool(10);
     }
 
@@ -171,7 +171,7 @@ public class CryptonoseGenericEngine {
     public void start() {
         if (started.getAndSet(true))
             throw new IllegalStateException("Engine can be started once");
-        if ((pairSelectionCriteria == null || pairSelectionCriteria.length==0) && pairsManual.length==0) {
+        if ((pairSelectionCriteria == null || pairSelectionCriteria.length==0) && pairsManualSet.size()==0) {
             engineMessage(new EngineMessage(EngineMessage.Type.NO_PAIRS, "Got 0 currency pairs"));
             return;
         }
@@ -277,6 +277,16 @@ public class CryptonoseGenericEngine {
             return false;
         }
         logger.info("getting pairs data");
+        if (pairsManualSet != null && pairsManualSet.size() > 0) {
+            logger.info(String.format("checking %d provided pairs", pairsManualSet.size()));
+            RepeatTillSuccess.planTask(() -> {
+                        Set<String> availableSymbolsSet = new HashSet<>(Arrays.asList(exchangeSpecs.getPairDataProvider().getPairsApiSymbols()));
+                        pairsManualSet.removeIf(pair -> !availableSymbolsSet.contains(pair));
+                    },
+                    (e) -> logger.log(Level.WARNING, "when getting currency pairs", e),
+                    GET_DATA_RETRY_INTERVAL);
+            logger.info(String.format("%d provided pairs left after filtering", pairsManualSet.size()));
+        }
         try {
             if (pairSelectionCriteria != null) {
                 engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Getting currency pairs..."));
@@ -444,8 +454,8 @@ public class CryptonoseGenericEngine {
     // get pair names according to criteria specified in pairSelectionCriteria
     private void getPairs() throws ExchangeCommunicationException, ConnectionProblemException {
         Set<String> pairsArraySet = new HashSet<>();
-        if(pairsManual!=null)
-            pairsArraySet.addAll(Arrays.asList(pairsManual));
+        if(pairsManualSet!=null && pairsManualSet.size()>0)
+            pairsArraySet.addAll(pairsManualSet);
         PairDataProvider pairDataProvider = exchangeSpecs.getPairDataProvider();
         pairsArraySet.addAll(Arrays.asList(pairDataProvider.getPairsApiSymbols(pairSelectionCriteria)));
         pairsAll=pairsArraySet.toArray(new String[pairsArraySet.size()]);
