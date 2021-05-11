@@ -20,37 +20,39 @@ public class PriceChanges {
     private final String currencyPair;
     private final long timePeriodSeconds;
     private final double lastPrice;
+    private final long lastPriceTimestampSec;
     private final double minPrice;
-    private final long minPriceTimestamp;
+    private final long minPriceTimestampSec;
     private final double maxPrice;
-    private final long maxPriceTimestamp;
+    private final long maxPriceTimestampSec;
     private final double maxAfterMinPrice;
-    private final long maxAfterMinTimestamp;
+    private final long maxAfterMinTimestampSec;
     private final double minAfterMaxPrice;
-    private final long minAfterMaxTimestamp;
+    private final long minAfterMaxTimestampSec;
     private Double relativePriceChange;
     private Double relativeLastPriceChange;
     private Double relativeDropPriceChange;
     private Double relativeRisePriceChange;
     private Double highLowDiffRelativeStdDev;
 
-    public PriceChanges(String currencyPair, long timePeriodSeconds, double lastPrice, double minPrice, long minPriceTimestamp, double maxPrice, long maxPriceTimestamp, double maxAfterMinPrice, long maxAfterMinTimestamp, double minAfterMaxPrice, long minAfterMaxTimestamp) {
+    public PriceChanges(String currencyPair, long timePeriodSeconds, double lastPrice, long lastPriceTimestampSec, double minPrice, long minPriceTimestampSec, double maxPrice, long maxPriceTimestampSec, double maxAfterMinPrice, long maxAfterMinTimestampSec, double minAfterMaxPrice, long minAfterMaxTimestampSec) {
         this.currencyPair = currencyPair;
         this.timePeriodSeconds = timePeriodSeconds;
         this.lastPrice = lastPrice;
+        this.lastPriceTimestampSec = lastPriceTimestampSec;
         this.minPrice = minPrice;
-        this.minPriceTimestamp = minPriceTimestamp;
+        this.minPriceTimestampSec = minPriceTimestampSec;
         this.maxPrice = maxPrice;
-        this.maxPriceTimestamp = maxPriceTimestamp;
+        this.maxPriceTimestampSec = maxPriceTimestampSec;
         this.maxAfterMinPrice = maxAfterMinPrice;
-        this.maxAfterMinTimestamp = maxAfterMinTimestamp;
+        this.maxAfterMinTimestampSec = maxAfterMinTimestampSec;
         this.minAfterMaxPrice = minAfterMaxPrice;
-        this.minAfterMaxTimestamp = minAfterMaxTimestamp;
+        this.minAfterMaxTimestampSec = minAfterMaxTimestampSec;
     }
 
     public double getPercentChange() {
         //price risin
-        if (maxPriceTimestamp>minPriceTimestamp) {
+        if (maxPriceTimestampSec > minPriceTimestampSec) {
             return 100*(maxPrice-minPrice)/minPrice;
         }
         //price droppin
@@ -61,7 +63,7 @@ public class PriceChanges {
 
     public double getChange() {
         //price risin
-        if (maxPriceTimestamp>minPriceTimestamp) {
+        if (maxPriceTimestampSec > minPriceTimestampSec) {
             return maxPrice-minPrice;
         }
         //price droppin
@@ -103,19 +105,19 @@ public class PriceChanges {
     }
 
     public long getChangeTimeSeconds() {
-        return Math.abs(minPriceTimestamp-maxPriceTimestamp);
+        return Math.abs(minPriceTimestampSec - maxPriceTimestampSec);
     }
 
     public long getDropChangeTimeSeconds() {
-        return minAfterMaxTimestamp - minPriceTimestamp;
+        return minAfterMaxTimestampSec - minPriceTimestampSec;
     }
 
     public long getRiseChangeTimeSeconds() {
-        return maxAfterMinTimestamp - minPriceTimestamp;
+        return maxAfterMinTimestampSec - minPriceTimestampSec;
     }
 
     public long getPriceChangeAgeSeconds() {
-        return System.currentTimeMillis()/1000-Math.max(minPriceTimestamp,maxPriceTimestamp);
+        return System.currentTimeMillis()/1000-Math.max(minPriceTimestampSec, maxPriceTimestampSec);
     }
 
     public double getLastPrice() {
@@ -166,12 +168,16 @@ public class PriceChanges {
         return highLowDiffRelativeStdDev;
     }
 
-    public long getFinalPriceTimestamp() {
-        return Math.max(maxPriceTimestamp, minPriceTimestamp);
+    public long getFinalPriceTimestampSec() {
+        return Math.max(maxPriceTimestampSec, minPriceTimestampSec);
     }
 
-    public long getReferencePriceTimestamp() {
-        return Math.min(maxPriceTimestamp, minPriceTimestamp);
+    public long getReferencePriceTimestampSec() {
+        return Math.min(maxPriceTimestampSec, minPriceTimestampSec);
+    }
+
+    public long getLastPriceTimestampSec() {
+        return lastPriceTimestampSec;
     }
 
     public void setRelativePriceChange(Double relativePriceChange) {
