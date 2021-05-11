@@ -176,6 +176,14 @@ public class PriceChanges {
         return Math.min(maxPriceTimestampSec, minPriceTimestampSec);
     }
 
+    public long getReferenceToLastPriceTimestampSec() {
+        if (getLastPercentChange() > 0) {
+            return minPriceTimestampSec;
+        } else {
+            return maxPriceTimestampSec;
+        }
+    }
+
     public long getLastPriceTimestampSec() {
         return lastPriceTimestampSec;
     }
