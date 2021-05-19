@@ -111,7 +111,7 @@ public class PriceChanges {
         double dropChange=maxPrice-lastPrice;
         if(riseChange>dropChange)
             return 100*riseChange/minPrice;
-        return -100*dropChange/lastPrice;
+        return -100*dropChange/maxPrice;
     }
 
     // get time of change for getChange() in seconds
