@@ -212,6 +212,15 @@ public class PriceChanges {
         }
     }
 
+    // for getLastChange() and getLastPercentChange, get a price which was a reference for the calculation
+    public double getReferenceToLastPrice() {
+        if (getLastPercentChange() > 0) {
+            return minPrice;
+        } else {
+            return maxPrice;
+        }
+    }
+
     // get timestamp of the most recent price
     public long getLastPriceTimestampSec() {
         return lastPriceTimestampSec;
