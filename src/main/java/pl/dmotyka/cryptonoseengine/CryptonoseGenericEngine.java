@@ -67,6 +67,7 @@ public class CryptonoseGenericEngine {
     private final PairSelectionCriteria[] pairSelectionCriteria;
     private Integer refreshIntervalMinutes = null;
     private final Set<String> pairsManualSet;
+    private final Set<String> pairsBlacklistSet;
     private boolean initEngineWithLowerPeriodChartData=false;
     private int checkChangesDelayMs = 0;
     private final AtomicBoolean useMedianRelativeChanges = new AtomicBoolean(false);
@@ -103,7 +104,8 @@ public class CryptonoseGenericEngine {
                                     long[] timePeriods,
                                     int relativeChangeNumCandles,
                                     PairSelectionCriteria[] pairSelectionCriteria,
-                                    String[] pairs) {
+                                    String[] pairs,
+                                    String[] pairsBlacklist) {
         if (timePeriods.length < 1)
             throw new IllegalArgumentException("empty timePeriods");
         this.exchangeSpecs = exchangeSpecs;
@@ -114,6 +116,7 @@ public class CryptonoseGenericEngine {
         cryptonoseEngineChangesChecker = new CryptonoseEngineChangesChecker(timePeriods);
         this.pairSelectionCriteria=pairSelectionCriteria;
         this.pairsManualSet = new HashSet<>(Arrays.asList(pairs));
+        this.pairsBlacklistSet = new HashSet<>(Arrays.asList(pairsBlacklist));
         scheduledExecutorService= Executors.newScheduledThreadPool(10);
     }
 
@@ -478,6 +481,7 @@ public class CryptonoseGenericEngine {
             pairsArraySet.addAll(pairsManualSet);
         PairDataProvider pairDataProvider = exchangeSpecs.getPairDataProvider();
         pairsArraySet.addAll(Arrays.asList(pairDataProvider.getPairsApiSymbols(pairSelectionCriteria)));
+        pairsArraySet.removeAll(pairsBlacklistSet);
         pairsAll=pairsArraySet.toArray(new String[pairsArraySet.size()]);
     }
 
