@@ -1,7 +1,7 @@
 /*
  * Cryptonose
  *
- * Copyright © 2019-2021 Dawid Motyka
+ * Copyright © 2019-2022 Dawid Motyka
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
  *
@@ -16,14 +16,16 @@ package pl.dmotyka.cryptonoseengine;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.OptionalDouble;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
-import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 import pl.dmotyka.exchangeutils.chartdataprovider.ChartDataProvider;
 import pl.dmotyka.exchangeutils.chartdataprovider.CurrencyPairTimePeriod;
 import pl.dmotyka.exchangeutils.chartinfo.ChartCandle;
+import pl.dmotyka.exchangeutils.chartutils.AvgHiLo;
+import pl.dmotyka.exchangeutils.chartutils.MedianHiLo;
+import pl.dmotyka.exchangeutils.chartutils.RelativeStdDeviation;
+import pl.dmotyka.exchangeutils.chartutils.SingleValueIndicator;
+import pl.dmotyka.exchangeutils.chartutils.WeightedAvgHiLo;
 
 /**
  * Created by dawid on 7/25/17.
@@ -32,59 +34,36 @@ public class RelativeChangesChecker {
 
     Logger logger = Logger.getLogger(RelativeChangesChecker.class.getName());
 
-    public class NoDataException extends Exception {}
+    public static class NoDataException extends Exception {}
 
     // chart candle is used for calculation only if its price change if higher than last price multiplied by this value
     public static final double MIN_CANDLE_CHANGE = 0.0001;
 
-    private final AtomicBoolean useMedianHighLowDiff = new AtomicBoolean(false);
-    private Map<CurrencyPairTimePeriod,RelativeChangesInfo> relativeChangesInfoMap=new HashMap<>();
+    private SingleValueIndicator hiLoDiffIndicator = new AvgHiLo();
+    private final Map<CurrencyPairTimePeriod,RelativeChangesInfo> relativeChangesInfoMap=new HashMap<>();
 
     public RelativeChangesChecker(ChartDataProvider chartDataProvider, int numCandles) {
        chartDataProvider.subscribeChartCandles((chartCandlesMap) -> {
            logger.fine("updating relative changes data");
            for(Map.Entry<CurrencyPairTimePeriod,ChartCandle[]> currentEntry : chartCandlesMap.entrySet()) {
                CurrencyPairTimePeriod currencyPairTimePeriod = currentEntry.getKey();
-               ChartCandle[] chartCandles = currentEntry.getValue();
+               ChartCandle[] allCandles = currentEntry.getValue();
+               ChartCandle[] chartCandles = Arrays.copyOfRange(allCandles, Math.max(0,allCandles.length-numCandles), allCandles.length);
+               double lastClosePrice = chartCandles[chartCandles.length-1].getClose();
+               chartCandles = Arrays.stream(chartCandles).filter(c -> Math.abs(c.getHigh()-c.getLow()) > lastClosePrice * MIN_CANDLE_CHANGE).toArray(ChartCandle[]::new);
                if (chartCandles.length == 0)
                    continue;
-               double[] highLowDiffArray = Arrays.stream(chartCandles).
-                       map(chartCandle -> Math.abs(chartCandle.getHigh()-chartCandle.getLow())).
-                       mapToDouble(val -> val).toArray();
-               double lastClosePrice = chartCandles[chartCandles.length-1].getClose();
-               highLowDiffArray = Arrays.stream(highLowDiffArray).filter(value -> value > lastClosePrice * MIN_CANDLE_CHANGE).toArray();
-               OptionalDouble optionalHighLowDiff;
-               if (useMedianHighLowDiff.get()) {
-                   optionalHighLowDiff = calcMedian(highLowDiffArray);
-               } else {
-                   optionalHighLowDiff = Arrays.stream(highLowDiffArray).average();
-               }
-               if(optionalHighLowDiff.isPresent()) {
-                   double highLowDiff = optionalHighLowDiff.getAsDouble();
-                   double highLowDiffRelativeStdDeviation = new StandardDeviation().evaluate(highLowDiffArray)/highLowDiff;
-                   relativeChangesInfoMap.put(currencyPairTimePeriod,new RelativeChangesInfo(highLowDiff, highLowDiffRelativeStdDeviation));
-               }
+               double highLowDiff = hiLoDiffIndicator.calcValue(chartCandles, chartCandles.length);
+               double highLowDiffRelativeStdDeviation = new RelativeStdDeviation().calcValue(chartCandles, chartCandles.length);
+               relativeChangesInfoMap.put(currencyPairTimePeriod,new RelativeChangesInfo(highLowDiff, highLowDiffRelativeStdDeviation));
            }
        });
-    }
-
-    private OptionalDouble calcMedian(double[] highLowDiffArray) {
-        OptionalDouble optionalHighLowDiff;
-        double[] sortedDiffs = Arrays.stream(highLowDiffArray).sorted().toArray();
-        if (sortedDiffs.length == 0 ) {
-            optionalHighLowDiff = OptionalDouble.empty();
-        } else if (sortedDiffs.length % 2 == 0) {
-            optionalHighLowDiff = OptionalDouble.of((sortedDiffs[sortedDiffs.length/2] + sortedDiffs[sortedDiffs.length/2-1]) / 2);
-        } else {
-            optionalHighLowDiff = OptionalDouble.of(sortedDiffs[sortedDiffs.length/2]);
-        }
-        return optionalHighLowDiff;
     }
 
     public double getRelativeChangeValue(String pair, long timePeriodSeconds, double priceChange) throws NoDataException {
         Double highLowDiff = relativeChangesInfoMap.get(new CurrencyPairTimePeriod(pair,(int)timePeriodSeconds)).getHighLowDiff();
         if(highLowDiff!=null)
-            return priceChange/highLowDiff.doubleValue();
+            return priceChange/highLowDiff;
         else
             throw new NoDataException();
     }
@@ -115,7 +94,11 @@ public class RelativeChangesChecker {
 
     // call to switch changes checker to use median instead of average high-low differences
     public void setUseMedianHighLowDiff() {
-        useMedianHighLowDiff.set(true);
+        hiLoDiffIndicator = new MedianHiLo();
+    }
+
+    public void setUseWeightedHighLowDiff() {
+        hiLoDiffIndicator = new WeightedAvgHiLo();
     }
 
 }
