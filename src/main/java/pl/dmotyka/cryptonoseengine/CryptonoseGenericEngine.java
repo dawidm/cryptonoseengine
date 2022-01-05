@@ -346,7 +346,7 @@ public class CryptonoseGenericEngine {
                 if (additionalPeriodNumCandles != null) {
                     ChartDataProvider.RefreshDataProgressReceiver additionalProgressReceiver = progress -> {
                         if (finalGettingAdditionalData) {
-                            progress = progress / (periodsNumCandles.size() + 1) + ((double)periodsNumCandles.size() / (periodsNumCandles.size() + 1));
+                            progress = progress / (periodsNumCandles.size() + 1) + 100 * ((double)periodsNumCandles.size() / (periodsNumCandles.size() + 1));
                         }
                         engineMessage(new EngineMessageConnectionProgress(EngineMessage.Type.INFO, String.format("Connection progress: %.1f", progress), progress));
                     };
