@@ -1,7 +1,7 @@
 /*
  * Cryptonose
  *
- * Copyright © 2019-2021 Dawid Motyka
+ * Copyright © 2019-2022 Dawid Motyka
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
  *
@@ -319,7 +319,7 @@ public class CryptonoseGenericEngine {
                 chartDataProvider.subscribeChartCandles(currentChartDataSubscriber);
             }
             relativeChangesChecker = new RelativeChangesChecker(chartDataProvider, relativeChangeNumCandles);
-            relativeChangesChecker.setUseMedianHighLowDiff();
+            relativeChangesChecker.setUseWeightedHighLowDiff();
             RepeatTillSuccess.planTask(() -> chartDataProvider.refreshData(pairsAll), (e) -> {
                 engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Error getting chart data"));
                 logger.log(Level.WARNING, "when getting chart data", e);
