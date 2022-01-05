@@ -320,7 +320,10 @@ public class CryptonoseGenericEngine {
             }
             relativeChangesChecker = new RelativeChangesChecker(chartDataProvider, relativeChangeNumCandles);
             relativeChangesChecker.setUseWeightedHighLowDiff();
-            RepeatTillSuccess.planTask(() -> chartDataProvider.refreshData(pairsAll), (e) -> {
+            ChartDataProvider.RefreshDataProgressReceiver progressReceiver = progress -> {
+                  engineMessage(new EngineMessageConnectionProgress(EngineMessage.Type.INFO, String.format("Connection progress: %.1f", progress), progress));
+            };
+            RepeatTillSuccess.planTask(() -> chartDataProvider.refreshData(pairsAll, progressReceiver), (e) -> {
                 engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Error getting chart data"));
                 logger.log(Level.WARNING, "when getting chart data", e);
             }, GET_DATA_RETRY_INTERVAL);
