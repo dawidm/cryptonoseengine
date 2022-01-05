@@ -329,6 +329,7 @@ public class CryptonoseGenericEngine {
             }
             boolean finalGettingAdditionalData = gettingAdditionalData;
             ChartDataProvider.RefreshDataProgressReceiver progressReceiver = progress -> {
+                // getting additional data is included in progress calculation
                 if (finalGettingAdditionalData) {
                     progress = progress * periodsNumCandles.size() / (periodsNumCandles.size() + 1);
                 }
@@ -345,9 +346,8 @@ public class CryptonoseGenericEngine {
                 PeriodNumCandles additionalPeriodNumCandles = checkGenTickersFromChartData();
                 if (additionalPeriodNumCandles != null) {
                     ChartDataProvider.RefreshDataProgressReceiver additionalProgressReceiver = progress -> {
-                        if (finalGettingAdditionalData) {
-                            progress = progress / (periodsNumCandles.size() + 1) + 100 * ((double)periodsNumCandles.size() / (periodsNumCandles.size() + 1));
-                        }
+                        // progress from getting standard data is summed with progress for additional data
+                        progress = progress / (periodsNumCandles.size() + 1) + 100 * ((double)periodsNumCandles.size() / (periodsNumCandles.size() + 1));
                         engineMessage(new EngineMessageConnectionProgress(EngineMessage.Type.INFO, String.format("Connection progress: %.1f", progress), progress));
                     };
                     engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Getting additional chart data..."));
