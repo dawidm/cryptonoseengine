@@ -320,8 +320,19 @@ public class CryptonoseGenericEngine {
             }
             relativeChangesChecker = new RelativeChangesChecker(chartDataProvider, relativeChangeNumCandles);
             relativeChangesChecker.setUseWeightedHighLowDiff();
+            boolean gettingAdditionalData = false;
+            if (initEngineWithLowerPeriodChartData) {
+                PeriodNumCandles additionalPeriodNumCandles = checkGenTickersFromChartData();
+                if (additionalPeriodNumCandles != null) {
+                    gettingAdditionalData = true;
+                }
+            }
+            boolean finalGettingAdditionalData = gettingAdditionalData;
             ChartDataProvider.RefreshDataProgressReceiver progressReceiver = progress -> {
-                  engineMessage(new EngineMessageConnectionProgress(EngineMessage.Type.INFO, String.format("Connection progress: %.1f", progress), progress));
+                if (finalGettingAdditionalData) {
+                    progress = progress * periodsNumCandles.size() / (periodsNumCandles.size() + 1);
+                }
+                engineMessage(new EngineMessageConnectionProgress(EngineMessage.Type.INFO, String.format("Connection progress: %.1f", progress), progress));
             };
             RepeatTillSuccess.planTask(() -> chartDataProvider.refreshData(pairsAll, progressReceiver), (e) -> {
                 engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Error getting chart data"));
@@ -333,10 +344,16 @@ public class CryptonoseGenericEngine {
             if (initEngineWithLowerPeriodChartData) {
                 PeriodNumCandles additionalPeriodNumCandles = checkGenTickersFromChartData();
                 if (additionalPeriodNumCandles != null) {
+                    ChartDataProvider.RefreshDataProgressReceiver additionalProgressReceiver = progress -> {
+                        if (finalGettingAdditionalData) {
+                            progress = progress / (periodsNumCandles.size() + 1) + ((double)periodsNumCandles.size() / (periodsNumCandles.size() + 1));
+                        }
+                        engineMessage(new EngineMessageConnectionProgress(EngineMessage.Type.INFO, String.format("Connection progress: %.1f", progress), progress));
+                    };
                     engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Getting additional chart data..."));
                     chartDataProviderInitEngine = new ChartDataProvider(exchangeSpecs, pairsAll, new PeriodNumCandles[] {additionalPeriodNumCandles});
                     chartDataProviderInitEngine.subscribeChartCandles(this::handleAdditionalChartData);
-                    RepeatTillSuccess.planTask(() -> chartDataProviderInitEngine.refreshData(), (e) -> {
+                    RepeatTillSuccess.planTask(() -> chartDataProviderInitEngine.refreshData(additionalProgressReceiver), (e) -> {
                         engineMessage(new EngineMessage(EngineMessage.Type.INFO, "Error getting additional chart data"));
                         logger.log(Level.WARNING, "when getting chart data", e);
                     }, GET_DATA_RETRY_INTERVAL);
