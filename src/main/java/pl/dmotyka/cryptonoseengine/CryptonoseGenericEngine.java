@@ -115,21 +115,33 @@ public class CryptonoseGenericEngine {
         this.engineChangesReceiver=engineChangesReceiver;
         cryptonoseEngineChangesChecker = new CryptonoseEngineChangesChecker(timePeriods);
         this.pairSelectionCriteria=pairSelectionCriteria;
-        this.pairsManualSet = new HashSet<>(Arrays.asList(pairs));
-        this.pairsBlacklistSet = new HashSet<>(Arrays.asList(pairsBlacklist));
+        if (pairs != null) {
+            this.pairsManualSet = new HashSet<>(Arrays.asList(pairs));
+        } else {
+            this.pairsManualSet = new HashSet<>();
+        }
+        if (pairsBlacklist != null) {
+            this.pairsBlacklistSet = new HashSet<>(Arrays.asList(pairsBlacklist));
+        } else {
+            this.pairsBlacklistSet = new HashSet<>();
+        }
         scheduledExecutorService= Executors.newScheduledThreadPool(10);
     }
 
     public static CryptonoseGenericEngine withProvidedCurrencyPairs(ExchangeSpecs exchangeSpecs, EngineChangesReceiver engineChangesReceiver, long[] timePeriods, int relativeChangeNumCandles, String[] paris) {
-        return new CryptonoseGenericEngine(exchangeSpecs,engineChangesReceiver,timePeriods,relativeChangeNumCandles,null,paris);
+        return new CryptonoseGenericEngine(exchangeSpecs,engineChangesReceiver,timePeriods,relativeChangeNumCandles,null, paris, null);
     }
 
     public static CryptonoseGenericEngine withProvidedMarkets(ExchangeSpecs exchangeSpecs, EngineChangesReceiver engineChangesReceiver, long[] timePeriods,int relativeChangeNumCandles,PairSelectionCriteria[] pairSelectionCriteria) {
-        return new CryptonoseGenericEngine(exchangeSpecs,engineChangesReceiver,timePeriods,relativeChangeNumCandles,pairSelectionCriteria,null);
+        return new CryptonoseGenericEngine(exchangeSpecs,engineChangesReceiver,timePeriods,relativeChangeNumCandles,pairSelectionCriteria,null, null);
     }
 
     public static CryptonoseGenericEngine withProvidedMarketsAndPairs(ExchangeSpecs exchangeSpecs, EngineChangesReceiver engineChangesReceiver, long[] timePeriods,int relativeChangeNumCandles,PairSelectionCriteria[] pairSelectionCriteria, String[] pairs) {
-        return new CryptonoseGenericEngine(exchangeSpecs,engineChangesReceiver,timePeriods,relativeChangeNumCandles,pairSelectionCriteria,pairs);
+        return new CryptonoseGenericEngine(exchangeSpecs,engineChangesReceiver,timePeriods,relativeChangeNumCandles,pairSelectionCriteria,pairs,null);
+    }
+
+    public static CryptonoseGenericEngine withProvidedMarketsPairsAndBlacklist(ExchangeSpecs exchangeSpecs, EngineChangesReceiver engineChangesReceiver, long[] timePeriods,int relativeChangeNumCandles,PairSelectionCriteria[] pairSelectionCriteria, String[] pairs, String[] blacklistPairs) {
+        return new CryptonoseGenericEngine(exchangeSpecs,engineChangesReceiver,timePeriods,relativeChangeNumCandles,pairSelectionCriteria,pairs,blacklistPairs);
     }
 
     public static ChartTimePeriod[] getAvailableTimePeriods(ExchangeSpecs exchangeSpecs) {
