@@ -49,6 +49,8 @@ public class RelativeChangesChecker {
                CurrencyPairTimePeriod currencyPairTimePeriod = currentEntry.getKey();
                ChartCandle[] allCandles = currentEntry.getValue();
                ChartCandle[] chartCandles = Arrays.copyOfRange(allCandles, Math.max(0,allCandles.length-numCandles), allCandles.length);
+               if (chartCandles.length == 0)
+                   continue;
                double lastClosePrice = chartCandles[chartCandles.length-1].getClose();
                chartCandles = Arrays.stream(chartCandles).filter(c -> Math.abs(c.getHigh()-c.getLow()) > lastClosePrice * MIN_CANDLE_CHANGE).toArray(ChartCandle[]::new);
                if (chartCandles.length == 0)
